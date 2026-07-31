@@ -333,6 +333,40 @@ TrebSim.Renderer = (function () {
     ctx.fillStyle = '#fff';
     ctx.beginPath(); ctx.arc(pv.x, pv.y, Math.max(1.5, 0.035 * this.scale), 0, Math.PI * 2); ctx.fill();
 
+    // ---- مظهر التحطم (التحليل الإنشائي)
+    var sf = r.structFailure;
+    if (sf && simTime >= sf.t - 1e-9) {
+      ctx.font = 'bold 14px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      if (sf.type === 'arm') {
+        // شرخ متعرج أحمر عبر الذراع عند المحور
+        var dxA = tip.x - se.x, dyA = tip.y - se.y;
+        var lenA = Math.hypot(dxA, dyA) || 1;
+        var nx = -dyA / lenA, ny = dxA / lenA; // عمودي على الذراع
+        var cs = Math.max(10, 0.22 * this.scale);
+        ctx.strokeStyle = '#d03b3b';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(pv.x - nx * cs, pv.y - ny * cs);
+        ctx.lineTo(pv.x - nx * cs * 0.3 + dxA / lenA * cs * 0.35, pv.y - ny * cs * 0.3 + dyA / lenA * cs * 0.35);
+        ctx.lineTo(pv.x + nx * cs * 0.3 - dxA / lenA * cs * 0.35, pv.y + ny * cs * 0.3 - dyA / lenA * cs * 0.35);
+        ctx.lineTo(pv.x + nx * cs, pv.y + ny * cs);
+        ctx.stroke();
+        ctx.fillStyle = '#d03b3b';
+        ctx.fillText('⚡ تحطم الذراع! σ تجاوز حد كسر الخشب', pv.x, pv.y - Math.max(38, 0.5 * this.scale));
+      } else if (sf.type === 'rope' && simTime < sf.t + 1.5) {
+        // بقايا حبل متدلية من الطرف + تنبيه مؤقت
+        ctx.strokeStyle = COLORS.rope;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(tip.x, tip.y);
+        ctx.lineTo(tip.x + 4, tip.y + Math.max(10, 0.25 * this.scale));
+        ctx.stroke();
+        ctx.fillStyle = '#d03b3b';
+        ctx.fillText('⚡ انقطع حبل المقلاع!', tip.x, tip.y - 14);
+      }
+    }
+
     // ---- طبقة القوى
     if (this.showForces) this._renderForces(frame, simTime, pv, tip, cw, prPos);
 

@@ -90,10 +90,20 @@ TrebSim.Charts = (function () {
     });
     if (!isFinite(xMin)) { this.bounds = null; return; }
     if (this.opts.includeZeroY) { yMin = Math.min(yMin, 0); yMax = Math.max(yMax, 0); }
+    // الخطوط المرجعية الأفقية (مثل حد كسر المادة) تدخل في نطاق المحور
+    (this.refLines || []).forEach(function (rl) {
+      yMin = Math.min(yMin, rl.y);
+      yMax = Math.max(yMax, rl.y);
+    });
     if (yMax - yMin < 1e-12) { yMax += 1; yMin -= 1; }
     if (xMax - xMin < 1e-12) { xMax += 1; }
     var padY = (yMax - yMin) * 0.06;
     this.bounds = { xMin: xMin, xMax: xMax, yMin: yMin - padY, yMax: yMax + padY };
+  };
+
+  /** ضبط الخطوط المرجعية — يُستدعى قبل setData حتى تدخل في نطاق المحور */
+  LineChart.prototype.setRefLines = function (list) {
+    this.refLines = list || [];
   };
 
   LineChart.prototype._prepare = function () {
@@ -176,6 +186,27 @@ TrebSim.Charts = (function () {
     // إطار المحاور
     ctx.strokeStyle = BASELINE;
     ctx.strokeRect(m.left, m.top, pw, ph);
+
+    // الخطوط المرجعية الأفقية (حد الكسر ونحوه)
+    var chart = this;
+    (this.refLines || []).forEach(function (rl) {
+      if (rl.y < yMin || rl.y > yMax) return;
+      ctx.strokeStyle = rl.color || '#d03b3b';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash(rl.dash || [7, 4]);
+      ctx.beginPath();
+      ctx.moveTo(m.left, Y(rl.y));
+      ctx.lineTo(m.left + pw, Y(rl.y));
+      ctx.stroke();
+      ctx.setLineDash([]);
+      if (rl.label) {
+        ctx.fillStyle = rl.color || '#d03b3b';
+        ctx.font = '10.5px system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(rl.label, m.left + 4, Y(rl.y) - 2);
+      }
+    });
 
     // عناوين المحاور (وحدات)
     ctx.fillStyle = INK2;
