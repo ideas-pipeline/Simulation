@@ -1,0 +1,362 @@
+/* ============================================================
+   محاكي فيزياء المنجنيق — تصميم عربي RTL متجاوب
+   ============================================================ */
+:root {
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --baseline: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.10);
+  --accent: #2a78d6;
+  --accent-dark: #1c5cab;
+  --warn-bg: #fdf3d7;
+  --warn-border: #fab219;
+  --error-bg: #fbe4e4;
+  --error-border: #d03b3b;
+  --ok: #0ca30c;
+  --radius: 10px;
+  --shadow: 0 1px 3px rgba(11, 11, 11, 0.07);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Tahoma, "Noto Naskh Arabic", sans-serif;
+  line-height: 1.55;
+}
+
+/* ---------- الرأس ---------- */
+.app-header {
+  padding: 18px 22px 10px;
+  border-bottom: 1px solid var(--grid);
+  background: var(--surface);
+}
+.app-header h1 { margin: 0; font-size: 1.5rem; }
+.subtitle { margin: 4px 0 0; color: var(--ink-2); font-size: 0.92rem; }
+
+/* ---------- التخطيط العام ---------- */
+.layout {
+  display: grid;
+  grid-template-columns: 350px minmax(0, 1fr);
+  gap: 16px;
+  padding: 16px;
+  align-items: start;
+}
+
+/* ---------- لوحة التحكم ---------- */
+.controls-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px;
+  position: sticky;
+  top: 10px;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+}
+
+.ctrl-group { border: 1px solid var(--grid); border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+.ctrl-group > summary {
+  cursor: pointer;
+  padding: 8px 12px;
+  font-weight: 700;
+  background: #f4f3ef;
+  list-style: none;
+  user-select: none;
+  font-size: 0.95rem;
+}
+.ctrl-group > summary::-webkit-details-marker { display: none; }
+.ctrl-group > summary::before { content: '▸ '; color: var(--muted); }
+.ctrl-group[open] > summary::before { content: '▾ '; }
+.ctrl-group-body { padding: 10px 12px; }
+
+.ctrl-row { margin-bottom: 12px; }
+.ctrl-row:last-child { margin-bottom: 2px; }
+.ctrl-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.88rem;
+  color: var(--ink-2);
+  margin-bottom: 3px;
+  gap: 6px;
+}
+.ctrl-label .unit { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+.ctrl-inputs { display: flex; align-items: center; gap: 8px; }
+.ctrl-inputs input[type="range"] { flex: 1; accent-color: var(--accent); min-width: 0; }
+.ctrl-inputs input[type="number"] {
+  width: 78px;
+  padding: 3px 6px;
+  border: 1px solid var(--baseline);
+  border-radius: 6px;
+  font-size: 0.88rem;
+  background: var(--surface);
+  color: var(--ink);
+  direction: ltr;
+  text-align: center;
+}
+.ctrl-inputs select {
+  flex: 1;
+  padding: 4px 6px;
+  border: 1px solid var(--baseline);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-family: inherit;
+}
+.ctrl-static { font-size: 0.85rem; color: var(--muted); }
+.ctrl-static b { color: var(--ink-2); }
+.ctrl-row.disabled { opacity: 0.45; pointer-events: none; }
+
+/* ---------- التحذيرات ---------- */
+.warnings:empty { display: none; }
+.warnings { margin-bottom: 10px; display: flex; flex-direction: column; gap: 6px; }
+.warning-item, .error-item {
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 0.85rem;
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+}
+.warning-item { background: var(--warn-bg); border: 1px solid var(--warn-border); }
+.error-item { background: var(--error-bg); border: 1px solid var(--error-border); }
+.warning-item::before { content: '⚠'; }
+.error-item::before { content: '⛔'; }
+
+/* ---------- الأزرار ---------- */
+.btn {
+  font-family: inherit;
+  font-size: 0.88rem;
+  padding: 7px 13px;
+  border-radius: 8px;
+  border: 1px solid var(--baseline);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn:hover:not(:disabled) { background: #f1f0ec; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-dark); }
+.btn-outline { border-color: var(--accent); color: var(--accent-dark); }
+.btn-block { width: 100%; }
+.btn-small { font-size: 0.8rem; padding: 5px 10px; }
+.btn-speed.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.speed-group { display: inline-flex; gap: 0; }
+.speed-group .btn { border-radius: 0; margin-inline-start: -1px; }
+.speed-group .btn:first-child { border-radius: 0 8px 8px 0; margin-inline-start: 0; }
+.speed-group .btn:last-child { border-radius: 8px 0 0 8px; }
+
+/* ---------- شريط الأدوات والمشهد ---------- */
+.stage { min-width: 0; }
+.toolbar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.toolbar-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.toolbar-row + .toolbar-row { margin-top: 8px; }
+.toolbar-sep { flex: 0 0 1px; align-self: stretch; background: var(--grid); }
+.chips { gap: 6px; }
+.chip {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.85rem;
+  border: 1px solid var(--baseline);
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--surface);
+}
+.chip:has(input:checked) { background: #e7f0fb; border-color: var(--accent); color: var(--accent-dark); }
+.chip input { accent-color: var(--accent); margin: 0; }
+
+.scene-wrap {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+#scene { display: block; width: 100%; height: 460px; }
+.status-line {
+  position: absolute;
+  bottom: 8px;
+  inset-inline-start: 12px;
+  background: rgba(252, 252, 251, 0.88);
+  border: 1px solid var(--grid);
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 0.8rem;
+  color: var(--ink-2);
+  direction: ltr;
+}
+
+/* ---------- اللوحات ---------- */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.panel h2 { margin: 0 0 10px; font-size: 1.08rem; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.panel-head h2 { margin: 0; }
+.panel-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.panel-note { color: var(--ink-2); font-size: 0.85rem; margin: 0 0 10px; }
+.muted { color: var(--muted); font-weight: 400; font-size: 0.85em; }
+
+/* ---------- النتائج ---------- */
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+.result-item {
+  border: 1px solid var(--grid);
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: #fbfaf7;
+}
+.result-item .rlabel { font-size: 0.78rem; color: var(--ink-2); }
+.result-item .rvalue { font-size: 1.02rem; font-weight: 700; direction: ltr; text-align: end; font-variant-numeric: tabular-nums; }
+.result-item .rvalue .unit { font-size: 0.75rem; color: var(--muted); font-weight: 400; }
+.result-item.highlight { background: #e7f0fb; border-color: var(--accent); }
+.result-item.result-warn { background: var(--warn-bg); border-color: var(--warn-border); }
+
+/* ---------- التحقق الفيزيائي ---------- */
+.validation-panel .vrow { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-bottom: 1px dashed var(--grid); font-size: 0.9rem; }
+.validation-panel .vrow:last-child { border-bottom: none; }
+.validation-panel .vrow .vvalue { direction: ltr; font-variant-numeric: tabular-nums; font-weight: 700; }
+.validation-panel .vgood { color: #006300; }
+.validation-panel .vbad { color: #d03b3b; }
+.validation-formula { background: #f4f3ef; border-radius: 6px; padding: 6px 10px; direction: ltr; text-align: left; font-family: ui-monospace, Consolas, monospace; font-size: 0.82rem; margin: 8px 0; overflow-x: auto; }
+
+/* ---------- الرسوم البيانية ---------- */
+.charts-section { padding: 0 16px 8px; }
+.charts-section > h2 { font-size: 1.08rem; margin: 4px 2px 10px; }
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 12px;
+}
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 10px 12px 8px;
+  position: relative;
+}
+.chart-card h3 { margin: 0 0 6px; font-size: 0.9rem; color: var(--ink-2); font-weight: 700; }
+.chart-card canvas { display: block; width: 100%; height: 200px; }
+.chart-wide { grid-column: 1 / -1; }
+.chart-wide canvas { height: 260px; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; padding-top: 6px; font-size: 0.78rem; color: var(--ink-2); }
+.chart-legend .lg-item { display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend .lg-swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.chart-tooltip {
+  position: fixed;
+  pointer-events: none;
+  background: rgba(11, 11, 11, 0.88);
+  color: #fff;
+  border-radius: 6px;
+  padding: 4px 9px;
+  font-size: 0.75rem;
+  direction: ltr;
+  z-index: 50;
+  white-space: nowrap;
+  transform: translate(-50%, -130%);
+}
+
+/* ---------- جدول المقارنة ---------- */
+.comparison-section { margin: 0 16px 12px; }
+.table-wrap { overflow-x: auto; }
+#scenario-table { border-collapse: collapse; width: 100%; font-size: 0.83rem; min-width: 900px; }
+#scenario-table th, #scenario-table td {
+  border-bottom: 1px solid var(--grid);
+  padding: 6px 8px;
+  text-align: center;
+  white-space: nowrap;
+}
+#scenario-table th { background: #f4f3ef; font-weight: 700; color: var(--ink-2); position: sticky; top: 0; }
+#scenario-table td.num { direction: ltr; font-variant-numeric: tabular-nums; }
+#scenario-table .empty-row td { color: var(--muted); padding: 14px; }
+#scenario-table input[type="checkbox"] { accent-color: var(--accent); }
+.scenario-swatch { display: inline-block; width: 16px; height: 4px; border-radius: 2px; vertical-align: middle; margin-inline-start: 6px; }
+.btn-delete { border: none; background: none; cursor: pointer; color: var(--muted); font-size: 0.95rem; }
+.btn-delete:hover { color: #d03b3b; }
+
+/* ---------- كيف تم حساب النتيجة؟ ---------- */
+.how-section { margin: 0 16px 12px; }
+.how-section summary { cursor: pointer; list-style: none; user-select: none; }
+.how-section summary::-webkit-details-marker { display: none; }
+.how-section summary h2 { display: inline; }
+.how-section summary::before { content: '▸ '; color: var(--muted); }
+.how-section[open] summary::before { content: '▾ '; }
+.how-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.how-item { border: 1px solid var(--grid); border-radius: 8px; padding: 10px 12px; background: #fbfaf7; }
+.how-item h3 { margin: 0 0 6px; font-size: 0.92rem; }
+.how-item p { margin: 0; font-size: 0.85rem; color: var(--ink-2); }
+.eq {
+  direction: ltr;
+  unicode-bidi: embed;
+  display: inline-block;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.84em;
+  background: #f0efec;
+  border-radius: 4px;
+  padding: 0 5px;
+  color: var(--ink);
+}
+#how-live table { border-collapse: collapse; width: 100%; font-size: 0.82rem; }
+#how-live td { padding: 3px 6px; border-bottom: 1px dashed var(--grid); }
+#how-live td:last-child { direction: ltr; text-align: end; font-variant-numeric: tabular-nums; font-weight: 700; }
+
+/* ---------- التذييل ---------- */
+.app-footer {
+  border-top: 1px solid var(--grid);
+  padding: 10px 22px 18px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  background: var(--surface);
+}
+
+/* ---------- الاستجابة للهاتف ---------- */
+@media (max-width: 1000px) {
+  .layout { grid-template-columns: 1fr; }
+  .controls-panel { position: static; max-height: none; order: 2; }
+  .stage { order: 1; }
+  #scene { height: 340px; }
+}
+@media (max-width: 560px) {
+  #scene { height: 260px; }
+  .app-header h1 { font-size: 1.2rem; }
+  .toolbar-row .btn { font-size: 0.8rem; padding: 6px 9px; }
+  .results-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}
