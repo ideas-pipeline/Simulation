@@ -84,6 +84,7 @@
     <div class="chart-card"><h3>ارتفاع المقذوف مقابل الزمن</h3><canvas id="chart-height"></canvas></div>
     <div class="chart-card"><h3>سرعة المقذوف مقابل الزمن</h3><canvas id="chart-speed"></canvas></div>
     <div class="chart-card"><h3>الطاقة مقابل الزمن</h3><canvas id="chart-energy"></canvas><div class="chart-legend" id="legend-energy"></div></div>
+    <div class="chart-card"><h3>إجهاد انحناء الذراع مقابل الزمن</h3><canvas id="chart-stress"></canvas><div class="chart-legend" id="legend-stress"></div></div>
     <div class="chart-card chart-wide"><h3>مسار المقذوف (الأفقي × الرأسي)</h3><canvas id="chart-traj"></canvas><div class="chart-legend" id="legend-traj"></div></div>
   </div>
 </section>
@@ -146,7 +147,11 @@
       <p>عند تفعيلها تضاف قوة <span class="eq">Fd = ½·ρ·Cd·A·v²</span> عكس اتجاه السرعة النسبية للهواء (مع أثر الرياح)، حيث <span class="eq">A = π·d²/4</span> لمقذوف كروي — فتنقص المسافة والارتفاع.</p>
     </div>
     <div class="how-item">
-      <h3>٨) الطاقة والكفاءة</h3>
+      <h3>٨) متى يتحطم المنجنيق؟ (التحليل الإنشائي)</h3>
+      <p>القوى الديناميكية العرضية تولّد عزم انحناء على الذراع الخشبي عند محور الارتكاز: للحمل الطرفي <span class="eq">M = F⊥·L</span> ومعه الحمل الموزع للذراع <span class="eq">M = λ·(α·L³/3 + g·cosθ·L²/2)</span>. إجهاد الانحناء لمقطع مستطيل b×h: <span class="eq">σ = M/S ، S = b·h²/6</span>، ويتحطم الذراع عندما يتجاوز σ معامل تمزق الخشب MOR (بلوط ≈ 90، دردار ≈ 100، صنوبر ≈ 60 MPa)، ومعامل الأمان <span class="eq">SF = MOR/σ</span>. أما حبل المقلاع (قنب) فشدّه <span class="eq">T = Mp·(a⃗−g⃗)·û</span> وينقطع عندما يتجاوز قوة قطعه <span class="eq">F_break = σt·π·d²/4</span> فيتحرر المقذوف مبكرًا. قيم المواد تقريبية تعليمية (خشب جاف) وليست قيم تصميم إنشائي.</p>
+    </div>
+    <div class="how-item">
+      <h3>٩) الطاقة والكفاءة</h3>
       <p>تُتابع المحاكاة طاقات الوضع والحركة لكل الأجزاء والطاقة المفقودة بالاحتكاك والسحب، وتتحقق من أن <span class="eq">E(t) + E_مفقودة ≈ E(0)</span> لاكتشاف الأخطاء العددية. الكفاءة = طاقة حركة المقذوف لحظة التحرير ÷ طاقة الوضع التي فقدها الثقل ×100.</p>
     </div>
     <div class="how-item" id="how-live">
@@ -165,6 +170,7 @@
 <script src="js/physics/projectile.js"></script>
 <script src="js/physics/energy.js"></script>
 <script src="js/physics/validation.js"></script>
+<script src="js/physics/structure.js"></script>
 <script src="js/simulation.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/renderer.js"></script>

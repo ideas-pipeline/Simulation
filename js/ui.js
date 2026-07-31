@@ -37,6 +37,24 @@ TrebSim.UI = (function () {
       ]
     },
     {
+      id: 'structure', title: 'المواد والمتانة — متى يتحطم المنجنيق؟', open: true,
+      controls: [
+        { key: 'structuralEnabled', label: 'تفعيل تحليل التحطم الواقعي', unit: '', checkbox: true },
+        {
+          key: 'armWood', label: 'نوع خشب الذراع', unit: '', requires: 'structuralEnabled',
+          select: Object.keys(TrebSim.Structure.WOODS).map(function (k) {
+            var w = TrebSim.Structure.WOODS[k];
+            return { v: k, t: w.name + ' — MOR ' + (w.mor / 1e6) + ' MPa، ρ ' + w.rho + ' kg/m³' };
+          })
+        },
+        { key: 'armWidth', label: 'عرض مقطع الذراع b', unit: 'm', min: 0.05, max: 0.5, step: 0.005, requires: 'structuralEnabled' },
+        { key: 'armHeight', label: 'ارتفاع مقطع الذراع h', unit: 'm', min: 0.05, max: 0.6, step: 0.005, requires: 'structuralEnabled' },
+        { key: 'autoArmMass', label: 'حساب كتلة الذراع تلقائيًا من المادة والأبعاد (M = ρ·b·h·L)', unit: '', checkbox: true, requires: 'structuralEnabled' },
+        { key: 'armMassComputed', label: 'كتلة الذراع من المادة والأبعاد', unit: 'kg', computed: true },
+        { key: 'ropeDiameter', label: 'قطر حبل المقلاع (قنب)', unit: 'm', min: 0.005, max: 0.06, step: 0.001, requires: ['structuralEnabled', 'slingEnabled'] }
+      ]
+    },
+    {
       id: 'physics', title: 'العوامل الفيزيائية', open: false,
       controls: [
         { key: 'gravity', label: 'تسارع الجاذبية g', unit: 'm/s²', min: 1, max: 25, step: 0.01 },
@@ -89,7 +107,12 @@ TrebSim.UI = (function () {
     { key: 'maxAlpha', label: 'أقصى تسارع زاوي', unit: 'rad/s²', digits: 2 },
     { key: 'initialPE', label: 'طاقة الوضع المستهلكة من الثقل حتى التحرير', unit: 'J', digits: 0 },
     { key: 'keAtRelease', label: 'طاقة حركة المقذوف لحظة التحرير', unit: 'J', digits: 0 },
-    { key: 'efficiencyPct', label: 'نسبة الكفاءة', unit: '%', digits: 1 }
+    { key: 'efficiencyPct', label: 'نسبة الكفاءة', unit: '%', digits: 1 },
+    // --- التحليل الإنشائي (تظهر «—» عند تعطيله)
+    { key: 'structStatus', label: 'حالة البنية — هل تحطم المنجنيق؟', unit: '', text: true, structural: true, highlight: true },
+    { key: 'maxStressMPa', label: 'أقصى إجهاد انحناء على الذراع', unit: 'MPa', digits: 2, structural: true },
+    { key: 'armSF', label: 'معامل أمان الذراع الخشبي (MOR/σ)', unit: '', digits: 2, structural: true },
+    { key: 'maxTensionKN', label: 'أقصى شد في حبل المقلاع', unit: 'kN', digits: 2, structural: true }
   ];
 
   var inputs = {};   // key → {range, number, row} أو {select}
@@ -129,6 +152,19 @@ TrebSim.UI = (function () {
       stat.id = 'computed-' + ctrl.key;
       wrap.appendChild(stat);
       inputs[ctrl.key] = { computed: true, el: stat };
+    } else if (ctrl.checkbox) {
+      var chkLabel = document.createElement('label');
+      chkLabel.className = 'chip';
+      var chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.addEventListener('change', function () {
+        refreshDependentState();
+        if (onChange) onChange();
+      });
+      chkLabel.appendChild(chk);
+      chkLabel.appendChild(document.createTextNode(' تفعيل'));
+      wrap.appendChild(chkLabel);
+      inputs[ctrl.key] = { checkbox: chk, row: row, requires: ctrl.requires };
     } else if (ctrl.select) {
       var sel = document.createElement('select');
       ctrl.select.forEach(function (o) {
@@ -192,6 +228,7 @@ TrebSim.UI = (function () {
     Object.keys(inputs).forEach(function (key) {
       var inp = inputs[key];
       if (inp.computed) return;
+      if (inp.checkbox) { inp.checkbox.checked = !!p[key]; return; }
       if (inp.select) { inp.select.value = p[key]; return; }
       if (p[key] !== undefined) {
         inp.range.value = p[key];
@@ -210,6 +247,7 @@ TrebSim.UI = (function () {
     Object.keys(inputs).forEach(function (key) {
       var inp = inputs[key];
       if (inp.computed) return;
+      if (inp.checkbox) { p[key] = inp.checkbox.checked; return; }
       if (inp.select) { p[key] = inp.select.value; return; }
       p[key] = parseFloat(inp.number.value);
     });
@@ -237,15 +275,32 @@ TrebSim.UI = (function () {
       if (v !== clamped) { com.number.value = clamped; com.range.value = clamped; }
     }
 
+    // شرط تفعيل صف تحكم: كل مفاتيح requires (نص أو مصفوفة) يجب أن تكون مفعلة
+    function reqOn(k) {
+      if (k === 'dragEnabled') return toggles.drag.checked;
+      if (k === 'slingEnabled') return toggles.sling.checked;
+      if (k === 'swingingCW') return toggles.swing.checked;
+      var dep = inputs[k];
+      return dep && dep.checkbox ? dep.checkbox.checked : true;
+    }
     Object.keys(inputs).forEach(function (key) {
       var inp = inputs[key];
       if (!inp.requires || !inp.row) return;
-      var enabled =
-        inp.requires === 'dragEnabled' ? toggles.drag.checked :
-        inp.requires === 'slingEnabled' ? toggles.sling.checked :
-        inp.requires === 'swingingCW' ? toggles.swing.checked : true;
+      var enabled = [].concat(inp.requires).every(reqOn);
       inp.row.classList.toggle('disabled', !enabled);
     });
+
+    // كتلة الذراع المحسوبة من المادة والأبعاد + تعطيل المزلاج اليدوي عند التفعيل
+    var autoOn = p.structuralEnabled && p.autoArmMass;
+    var massComputed = document.getElementById('computed-armMassComputed');
+    if (massComputed) {
+      var mAuto = TrebSim.Structure.autoArmMass(p);
+      massComputed.innerHTML = 'M = ρ·b·h·L = <b>' + mAuto.toFixed(1) + ' kg</b>' +
+        (autoOn ? ' (مستخدمة في المحاكاة)' : ' (للمرجعية فقط)');
+    }
+    if (inputs.armMass && inputs.armMass.row) {
+      inputs.armMass.row.classList.toggle('disabled', autoOn);
+    }
   }
 
   /** ربط أزرار الاختيار (chips) العلوية */
@@ -299,12 +354,38 @@ TrebSim.UI = (function () {
 
   function renderResults(result) {
     var stats = result && result.stats;
+    var struct = result && result.structural;
     RESULTS.forEach(function (rs) {
       var item = document.getElementById('res-' + rs.key);
       var val = item.querySelector('.rvalue');
       item.classList.remove('result-warn');
+
+      // بنود التحليل الإنشائي تُقرأ من result.structural (وقد توجد حتى لو فشل الإطلاق)
+      if (rs.structural) {
+        if (!struct) {
+          val.innerHTML = '— <span class="unit">' + rs.unit + '</span>';
+          return;
+        }
+        if (rs.key === 'structStatus') {
+          var f = struct.failure;
+          var txt = !f ? '✔ سليمة — لم يتحطم شيء'
+            : f.type === 'arm' ? '⚡ تحطم الذراع عند t = ' + f.t.toFixed(2) + ' s'
+            : '⚡ انقطع الحبل عند t = ' + f.t.toFixed(2) + ' s';
+          val.innerHTML = txt;
+          if (f) item.classList.add('result-warn');
+          return;
+        }
+        var sv = rs.key === 'maxStressMPa' ? struct.maxStress / 1e6
+          : rs.key === 'armSF' ? struct.armSF
+          : rs.key === 'maxTensionKN' ? (struct.maxTension !== null ? struct.maxTension / 1000 : null)
+          : null;
+        val.innerHTML = fmt(sv, rs.digits) + ' <span class="unit">' + rs.unit + '</span>';
+        if (rs.key === 'armSF' && sv !== null && sv < 1.5) item.classList.add('result-warn');
+        return;
+      }
+
       if (!stats) {
-        val.innerHTML = '— <span class="unit">' + rs.unit + '</span>';
+        val.innerHTML = rs.text ? '—' : '— <span class="unit">' + rs.unit + '</span>';
         return;
       }
       if (rs.key === 'targetSide') {
@@ -379,6 +460,16 @@ TrebSim.UI = (function () {
       ['وزن الثقل الموازن W = Mc·g', (p.counterweightMass * p.gravity).toFixed(0) + ' N'],
       ['وزن المقذوف W = Mp·g', (p.projectileMass * p.gravity).toFixed(0) + ' N']
     ];
+    if (p.structuralEnabled) {
+      var wd = TrebSim.Structure.wood(p);
+      rows.push(['معامل مقطع الذراع S = b·h²/6',
+        (TrebSim.Structure.sectionModulus(p.armWidth, p.armHeight) * 1e6).toFixed(0) + ' cm³']);
+      rows.push(['معامل تمزق الخشب (' + wd.name + ') MOR', (wd.mor / 1e6).toFixed(0) + ' MPa']);
+      if (p.slingEnabled) {
+        rows.push(['قوة قطع حبل القنب F = σt·π·d²/4',
+          (TrebSim.Structure.ropeBreakForce(p.ropeDiameter) / 1000).toFixed(1) + ' kN']);
+      }
+    }
     var html = '<h3>بالقيم الحالية (تُحدّث مع كل تعديل)</h3><table>';
     rows.forEach(function (r2) {
       html += '<tr><td>' + r2[0] + '</td><td>' + r2[1] + '</td></tr>';
