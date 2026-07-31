@@ -64,6 +64,11 @@
       ],
       fmt: function (l, pt) { return l + ' : ' + Math.round(pt.y) + ' J @ ' + pt.x.toFixed(2) + 's'; }
     }),
+    stress: new Charts.LineChart(document.getElementById('chart-stress'), {
+      xLabel: 't (s)', yLabel: 'σ (MPa)', includeZeroY: true,
+      series: [{ key: 'stress', label: 'إجهاد الانحناء', color: P[0] }],
+      fmt: function (l, pt) { return 't=' + pt.x.toFixed(2) + 's , σ=' + pt.y.toFixed(2) + ' MPa'; }
+    }),
     traj: new Charts.LineChart(document.getElementById('chart-traj'), {
       xLabel: 'x (m)', yLabel: 'y (m)', includeZeroY: true, clipBy: 't', equalAspect: true,
       series: [
@@ -85,9 +90,10 @@
 
   /** بناء بيانات كل الرسوم من إطارات المحاكاة */
   function buildChartData() {
-    var d = { theta: [], omega: [], alpha: [], height: [], speed: [], peCW: [], keCW: [], keArm: [], keProj: [], lost: [], total: [], current: [] };
+    var d = { theta: [], omega: [], alpha: [], height: [], speed: [], peCW: [], keCW: [], keArm: [], keProj: [], lost: [], total: [], current: [], stress: [] };
     if (result && result.ok) {
       result.frames.forEach(function (f) {
+        if (f.struct) d.stress.push({ x: f.t, y: f.struct.sigma / 1e6 });
         d.theta.push({ x: f.t, y: f.theta * 180 / Math.PI });
         d.omega.push({ x: f.t, y: f.omega });
         if (f.phase === 'arm') d.alpha.push({ x: f.t, y: f.alpha });
@@ -108,6 +114,23 @@
     charts.height.setData({ height: d.height });
     charts.speed.setData({ speed: d.speed });
     charts.energy.setData({ peCW: d.peCW, keCW: d.keCW, keArm: d.keArm, keProj: d.keProj, lost: d.lost, total: d.total });
+
+    // مخطط الإجهاد مع خط حد كسر الخشب MOR
+    if (result && result.ok && result.structural) {
+      charts.stress.setRefLines([{
+        y: result.structural.mor / 1e6,
+        label: 'حد الكسر MOR — ' + result.structural.woodName + ' (' + (result.structural.mor / 1e6).toFixed(0) + ' MPa)',
+        color: '#d03b3b', dash: [7, 4]
+      }]);
+    } else {
+      charts.stress.setRefLines([]);
+    }
+    charts.stress.setData({ stress: d.stress });
+    Charts.buildLegend(document.getElementById('legend-stress'),
+      result && result.ok && result.structural
+        ? [{ label: 'إجهاد الانحناء عند المحور', color: P[0] },
+           { label: 'حد الكسر MOR (' + result.structural.woodName + ')', color: '#d03b3b', dash: [7, 4] }]
+        : [{ label: 'التحليل الإنشائي معطل', color: '#898781' }]);
 
     var ovs = TrebSim.Scenarios.getOverlays();
     charts.traj.setData({
@@ -134,8 +157,11 @@
 
   function phaseName(f) {
     if (!f) return '';
+    var sf = result.structFailure;
+    if (sf && sf.type === 'arm' && simTime >= sf.t - 1e-9) return '⚡ تحطم الذراع — فشلت التجربة';
     if (result.landing && simTime >= result.landing.t - 1e-9) return 'انتهت التجربة';
-    return f.phase === 'arm' ? 'تأرجح الذراع' : 'طيران المقذوف';
+    if (f.phase === 'arm') return 'تأرجح الذراع';
+    return sf && sf.type === 'rope' ? 'طيران المقذوف (بعد انقطاع الحبل)' : 'طيران المقذوف';
   }
 
   /** عرض المشهد والحالة عند زمن معين */

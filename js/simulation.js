@@ -57,7 +57,14 @@ TrebSim.Simulation = (function () {
       windDirection: 'tail', // 'tail' مع الرمي | 'head' عكسه
       timeStep: 0.005,       // s
       targetDistance: 20,    // m موقع الهدف
-      integrator: 'rk4'      // 'rk4' | 'euler'
+      integrator: 'rk4',     // 'rk4' | 'euler'
+      // --- التحليل الإنشائي (تجربة واقعية: متى يتحطم المنجنيق؟)
+      structuralEnabled: true,
+      armWood: 'oak',        // نوع خشب الذراع
+      armWidth: 0.15,        // m عرض مقطع الذراع b
+      armHeight: 0.25,       // m ارتفاع مقطع الذراع h
+      autoArmMass: false,    // حساب كتلة الذراع من المادة والأبعاد
+      ropeDiameter: 0.016    // m قطر حبل المقلاع (قنب)
     };
   }
 
@@ -111,6 +118,13 @@ TrebSim.Simulation = (function () {
     return { errors: errors, warnings: warnings };
   }
 
+  /** تحويل مصفوفة التسارعات المعممة إلى كائن {theta, phi, psi} */
+  function qddObject(names, qdd) {
+    var o = { theta: 0, phi: 0, psi: 0 };
+    for (var i = 0; i < names.length; i++) o[names[i]] = qdd[i];
+    return o;
+  }
+
   /** إطار تسجيل واحد أثناء طور الذراع */
   function makeArmFrame(p, t, y, lost) {
     var s = Trebuchet.unpackState(p, y);
@@ -118,7 +132,13 @@ TrebSim.Simulation = (function () {
     var geo = Trebuchet.geometry(p, s.q);
     var vel = Trebuchet.velocities(p, s.q, s.qd);
     var en = Energy.armPhaseEnergies(p, s.q, s.qd);
+    // التحليل الإنشائي اللحظي (قياس فقط — لا يغير الديناميكا)
+    var struct = null;
+    if (p.structuralEnabled) {
+      struct = TrebSim.Structure.evaluate(p, s.q, s.qd, qddObject(s.names, qdd));
+    }
     return {
+      struct: struct,
       t: t, phase: 'arm',
       theta: s.q.theta, omega: s.qd.theta, alpha: qdd[0],
       phi: s.q.phi, psi: s.q.psi,
@@ -135,6 +155,10 @@ TrebSim.Simulation = (function () {
   /** تنفيذ التجربة كاملة وإعادة سجل النتائج والإطارات */
   function run(userParams) {
     var p = Object.assign(defaults(), userParams || {});
+    // كتلة الذراع من المادة والأبعاد: M = ρ·b·h·L (عند تفعيل الخيار)
+    if (p.structuralEnabled && p.autoArmMass) {
+      p.armMass = TrebSim.Structure.autoArmMass(p);
+    }
     var check = validateParams(p);
     var warnings = check.warnings.slice();
     if (check.errors.length) {
@@ -149,6 +173,9 @@ TrebSim.Simulation = (function () {
     var maxAlpha = 0;
     var armStopReason = null;
     var slingGroundWarned = false;
+    var structFailure = null;   // {type: 'arm'|'rope', t, value}
+    var maxStress = 0;          // Pa أقصى إجهاد انحناء
+    var maxTension = 0;         // N أقصى شد للحبل
 
     // ================= الطور الأول: حركة الذراع =================
     var deriv = Trebuchet.derivFactory(p);
@@ -159,6 +186,10 @@ TrebSim.Simulation = (function () {
 
     var frame0 = makeArmFrame(p, 0, y, 0);
     frames.push(frame0);
+    if (frame0.struct) {
+      maxStress = frame0.struct.sigma;
+      if (frame0.struct.tension !== null) maxTension = frame0.struct.tension;
+    }
     var E0 = frame0.en.total;         // الطاقة الميكانيكية الابتدائية
     var cwY0 = frame0.cw.y;           // ارتفاع الثقل الابتدائي
     var maxEnergyDrift = 0;
@@ -193,6 +224,10 @@ TrebSim.Simulation = (function () {
 
         var relFrame = makeArmFrame(p, tRel, yRel, lost);
         frames.push(relFrame);
+        if (relFrame.struct) {
+          maxStress = Math.max(maxStress, relFrame.struct.sigma);
+          if (relFrame.struct.tension !== null) maxTension = Math.max(maxTension, relFrame.struct.tension);
+        }
 
         // سرعة المقذوف لحظة التحرير (projectileRelease):
         // بدون مقلاع: v = ω × r  (مماسية، مقدارها ω·Lp)
@@ -215,6 +250,49 @@ TrebSim.Simulation = (function () {
       var frame = makeArmFrame(p, t, y, lost);
       frames.push(frame);
       maxAlpha = Math.max(maxAlpha, Math.abs(frame.alpha));
+
+      // ===== التحليل الإنشائي: هل تحطم شيء في هذه اللحظة؟ =====
+      if (p.structuralEnabled && frame.struct) {
+        maxStress = Math.max(maxStress, frame.struct.sigma);
+        if (frame.struct.tension !== null) maxTension = Math.max(maxTension, frame.struct.tension);
+
+        // انقطاع حبل المقلاع: T ≥ F_break ⇒ تحرير مبكر للمقذوف
+        if (p.slingEnabled && frame.struct.tension !== null &&
+            frame.struct.tension >= frame.struct.ropeBreak) {
+          structFailure = { type: 'rope', t: t, value: frame.struct.tension, limit: frame.struct.ropeBreak };
+          warnings.push('⚡ انقطع حبل المقلاع عند t = ' + t.toFixed(3) + ' s! الشد بلغ ' +
+            (frame.struct.tension / 1000).toFixed(1) + ' kN متجاوزًا قوة قطع الحبل (' +
+            (frame.struct.ropeBreak / 1000).toFixed(1) + ' kN) — تحرر المقذوف مبكرًا. كبّر قطر الحبل أو خفف المقذوف.');
+          var sNow = Trebuchet.unpackState(p, y);
+          var geoNow = Trebuchet.geometry(p, sNow.q);
+          var velNow = Trebuchet.velocities(p, sNow.q, sNow.qd);
+          var enNow = Energy.armPhaseEnergies(p, sNow.q, sNow.qd);
+          releaseInfo = {
+            t: t,
+            x: geoNow.proj.x, y: geoNow.proj.y,
+            vx: velNow.projV.x, vy: velNow.projV.y,
+            speed: Math.hypot(velNow.projV.x, velNow.projV.y),
+            angleDeg: Math.atan2(velNow.projV.y, velNow.projV.x) * 180 / Math.PI,
+            omega: sNow.qd.theta,
+            armThetaDeg: sNow.q.theta * 180 / Math.PI,
+            keProj: enNow.keProj,
+            cwDrop: cwY0 - geoNow.cw.y,
+            armStateY: y,
+            premature: true
+          };
+          break;
+        }
+
+        // تحطم الذراع الخشبي: σ ≥ MOR ⇒ فشل التجربة
+        if (frame.struct.sigma >= frame.struct.mor) {
+          structFailure = { type: 'arm', t: t, value: frame.struct.sigma, limit: frame.struct.mor };
+          armStopReason = 'arm-broken';
+          warnings.push('⚡ تحطم الذراع الخشبي عند t = ' + t.toFixed(3) + ' s! إجهاد الانحناء بلغ ' +
+            (frame.struct.sigma / 1e6).toFixed(1) + ' MPa متجاوزًا معامل تمزق الخشب (' +
+            (frame.struct.mor / 1e6).toFixed(0) + ' MPa) — لم يتم الإطلاق. كبّر مقطع الذراع أو اختر خشبًا أقوى أو خفف الثقل.');
+          break;
+        }
+      }
 
       // فحص حفظ الطاقة لاكتشاف الأخطاء العددية:
       // يجب أن يبقى E(t) + E_lost(t) ≈ E(0)
@@ -351,6 +429,34 @@ TrebSim.Simulation = (function () {
       warnings.push('تحذير عددي: انحراف حفظ الطاقة بلغ ' + maxEnergyDrift.toFixed(2) + '% — صغّر الخطوة الزمنية أو استخدم مكامل RK4.');
     }
 
+    // ===== ملخص التحليل الإنشائي =====
+    var structural = null;
+    if (p.structuralEnabled) {
+      var wd = TrebSim.Structure.wood(p);
+      var ropeBreak = p.slingEnabled ? TrebSim.Structure.ropeBreakForce(p.ropeDiameter) : null;
+      structural = {
+        woodName: wd.name,
+        mor: wd.mor,
+        maxStress: maxStress,
+        armSF: maxStress > 1e-9 ? wd.mor / maxStress : null,
+        maxTension: p.slingEnabled ? maxTension : null,
+        ropeBreak: ropeBreak,
+        ropeSF: (p.slingEnabled && maxTension > 1e-9) ? ropeBreak / maxTension : null,
+        armMassUsed: p.armMass,
+        failure: structFailure
+      };
+      if (!structFailure) {
+        if (structural.armSF !== null && structural.armSF < 1.5) {
+          warnings.push('تنبيه إنشائي: معامل أمان الذراع منخفض (' + structural.armSF.toFixed(2) +
+            ') — الإجهاد اقترب من حد كسر الخشب.');
+        }
+        if (structural.ropeSF !== null && structural.ropeSF < 1.5) {
+          warnings.push('تنبيه إنشائي: معامل أمان حبل المقلاع منخفض (' + structural.ropeSF.toFixed(2) +
+            ') — الشد اقترب من قوة قطع الحبل.');
+        }
+      }
+    }
+
     // ================= النتائج =================
     var stats = null;
     var validation = null;
@@ -391,6 +497,8 @@ TrebSim.Simulation = (function () {
       landing: landing,
       stats: stats,
       validation: validation,
+      structural: structural,
+      structFailure: structFailure,
       armStopReason: armStopReason,
       launched: !!releaseInfo,
       totalTime: frames.length ? frames[frames.length - 1].t : 0
