@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>محاكي فيزياء المنجنيق</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E🏹%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="app-header">
+  <h1>محاكي فيزياء المنجنيق</h1>
+  <p class="subtitle">محاكاة تعليمية ثنائية الأبعاد لمنجنيق ذي ثقل موازن — جميع النتائج ناتجة عن حل معادلات الميكانيكا الكلاسيكية بالتكامل العددي (RK4)</p>
+</header>
+
+<main class="layout">
+
+  <!-- ===== لوحة التحكم (يمين الشاشة) ===== -->
+  <aside class="controls-panel" id="controls-panel">
+    <div id="warnings" class="warnings" aria-live="polite"></div>
+    <div id="control-groups"><!-- تُبنى المجموعات برمجيًا من ui.js --></div>
+    <button id="btn-defaults" class="btn btn-outline btn-block" type="button">↺ إعادة القيم الافتراضية</button>
+  </aside>
+
+  <!-- ===== المشهد والنتائج ===== -->
+  <section class="stage">
+    <div class="toolbar" id="toolbar">
+      <div class="toolbar-row">
+        <button id="btn-play" class="btn btn-primary" type="button">▶ تشغيل</button>
+        <button id="btn-pause" class="btn" type="button" disabled>⏸ إيقاف مؤقت</button>
+        <button id="btn-restart" class="btn" type="button">⟳ إعادة تشغيل</button>
+        <button id="btn-step" class="btn" type="button">⏯ خطوة زمنية واحدة</button>
+        <span class="toolbar-sep"></span>
+        <div class="speed-group" role="group" aria-label="سرعة العرض">
+          <button id="btn-speed-slow" class="btn btn-speed" data-speed="0.25" type="button">تشغيل بطيء ×¼</button>
+          <button id="btn-speed-normal" class="btn btn-speed active" data-speed="1" type="button">سرعة عادية ×1</button>
+          <button id="btn-speed-fast" class="btn btn-speed" data-speed="4" type="button">تشغيل سريع ×4</button>
+        </div>
+      </div>
+      <div class="toolbar-row chips">
+        <label class="chip"><input type="checkbox" id="chk-trajectory" checked> مسار المقذوف</label>
+        <label class="chip"><input type="checkbox" id="chk-forces"> إظهار القوى</label>
+        <label class="chip"><input type="checkbox" id="chk-drag"> مقاومة الهواء</label>
+        <label class="chip"><input type="checkbox" id="chk-sling"> المقلاع (Sling)</label>
+        <label class="chip"><input type="checkbox" id="chk-swing"> ثقل متأرجح</label>
+        <label class="chip"><input type="checkbox" id="chk-validation"> التحقق الفيزيائي</label>
+      </div>
+    </div>
+
+    <div class="scene-wrap">
+      <canvas id="scene" aria-label="مشهد المحاكاة الجانبي"></canvas>
+      <div id="status-line" class="status-line">t = 0.000 s</div>
+    </div>
+
+    <!-- نتائج التجربة -->
+    <section class="panel" id="results-panel">
+      <div class="panel-head">
+        <h2>نتائج التجربة</h2>
+        <div class="panel-actions">
+          <button id="btn-save-scenario" class="btn btn-small" type="button">💾 حفظ السيناريو الحالي</button>
+          <button id="btn-compare-last" class="btn btn-small" type="button">⇄ مقارنة آخر تجربتين</button>
+        </div>
+      </div>
+      <div class="results-grid" id="results-grid"><!-- تُبنى من ui.js --></div>
+    </section>
+
+    <!-- وضع التحقق الفيزيائي -->
+    <section class="panel validation-panel" id="validation-panel" hidden>
+      <h2>وضع التحقق الفيزيائي</h2>
+      <p class="panel-note">مقارنة نتيجة التكامل العددي لطور الطيران بالحل التحليلي لحركة المقذوفات (تصح المقارنة فقط عند تعطيل مقاومة الهواء).</p>
+      <div id="validation-content"></div>
+    </section>
+  </section>
+</main>
+
+<!-- ===== الرسوم البيانية ===== -->
+<section class="charts-section" id="charts-section">
+  <h2>الرسوم البيانية <span class="muted">(تتحدث لحظيًا أثناء العرض)</span></h2>
+  <div class="charts-grid">
+    <div class="chart-card"><h3>زاوية الذراع مقابل الزمن</h3><canvas id="chart-theta"></canvas></div>
+    <div class="chart-card"><h3>السرعة الزاوية مقابل الزمن</h3><canvas id="chart-omega"></canvas></div>
+    <div class="chart-card"><h3>التسارع الزاوي مقابل الزمن</h3><canvas id="chart-alpha"></canvas></div>
+    <div class="chart-card"><h3>ارتفاع المقذوف مقابل الزمن</h3><canvas id="chart-height"></canvas></div>
+    <div class="chart-card"><h3>سرعة المقذوف مقابل الزمن</h3><canvas id="chart-speed"></canvas></div>
+    <div class="chart-card"><h3>الطاقة مقابل الزمن</h3><canvas id="chart-energy"></canvas><div class="chart-legend" id="legend-energy"></div></div>
+    <div class="chart-card chart-wide"><h3>مسار المقذوف (الأفقي × الرأسي)</h3><canvas id="chart-traj"></canvas><div class="chart-legend" id="legend-traj"></div></div>
+  </div>
+</section>
+
+<!-- ===== مقارنة السيناريوهات ===== -->
+<section class="panel comparison-section" id="comparison-section">
+  <h2>مقارنة السيناريوهات <span class="muted">(حتى 5 تجارب محفوظة — اختر تجربتين لعرض مساريهما على المشهد ورسم المسار)</span></h2>
+  <div class="table-wrap">
+    <table id="scenario-table">
+      <thead>
+        <tr>
+          <th>عرض</th><th>التجربة</th>
+          <th>كتلة المقذوف (kg)</th><th>كتلة الثقل (kg)</th>
+          <th>الذراع الطويل (m)</th><th>الذراع القصير (m)</th>
+          <th>زاوية التحرير (°)</th><th>المقلاع (m)</th>
+          <th>سرعة الإطلاق (m/s)</th><th>المسافة (m)</th>
+          <th>أقصى ارتفاع (m)</th><th>زمن الطيران (s)</th>
+          <th>الكفاءة (%)</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="scenario-rows">
+        <tr class="empty-row"><td colspan="14">لا توجد تجارب محفوظة بعد — شغّل تجربة ثم اضغط «حفظ السيناريو الحالي».</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===== كيف تم حساب النتيجة؟ ===== -->
+<details class="panel how-section" id="how-section">
+  <summary><h2>كيف تم حساب النتيجة؟</h2></summary>
+  <div class="how-content">
+    <div class="how-item">
+      <h3>١) عزم دوران الثقل الموازن</h3>
+      <p>وزن الثقل الموازن <span class="eq">W = Mc·g</span> (بالنيوتن) يولّد عزمًا محرّكًا حول محور الارتكاز مقداره
+      <span class="eq">τc = Mc·g·Lc·sin(θ′)</span> حيث θ′ زاوية الذراع مقاسة من الرأسي (وتكافئ cos(θ) عند القياس من الأفقي). هذا العزم هو ما يدير الذراع.</p>
+    </div>
+    <div class="how-item">
+      <h3>٢) عزم المقذوف ووزن الذراع</h3>
+      <p>يقاوم المقذوفُ الحركةَ في بداية الإطلاق بعزم <span class="eq">τp = Mp·g·Lp·sin(θ′)</span> باتجاه معاكس، ويضاف عزم وزن الذراع حسب موقع مركز كتلته. الإشارات تُحسب هندسيًا من <span class="eq">τ = r × F</span> فلا تُخطئ الاتجاه في أي ربع.</p>
+    </div>
+    <div class="how-item">
+      <h3>٣) عزم القصور الذاتي</h3>
+      <p>الذراع ليس عديم الكتلة: <span class="eq">I_total = I_arm + Mc·Lc² + Mp·Lp²</span> حيث
+      <span class="eq">I_arm = k·M_arm·L² + M_arm·d²</span> بتطبيق مبرهنة المحور الموازي (k = 1/12 للذراع المنتظم، وd بُعد مركز كتلة الذراع عن المحور).</p>
+    </div>
+    <div class="how-item">
+      <h3>٤) التسارع والسرعة الزاوية</h3>
+      <p>قانون نيوتن الثاني للدوران: <span class="eq">Στ = I·α</span> ومنه <span class="eq">α = Στ ÷ I</span>. ثم تُكامل الحركة عدديًا كل خطوة زمنية Δt بطريقة <b>Runge-Kutta 4</b> (أو أويلر شبه الضمني في الوضع المبسط): <span class="eq">ω ← ω + α·Δt</span> ، <span class="eq">θ ← θ + ω·Δt</span>. ومع تفعيل الثقل المتأرجح أو المقلاع تُحل معادلات لاغرانج المتعددة <span class="eq">M(q)·q̈ = f(q, q̇)</span>.</p>
+    </div>
+    <div class="how-item">
+      <h3>٥) لحظة تحرير المقذوف</h3>
+      <p>عند بلوغ الذراع زاويةَ التحرير يُفصل المقذوف. بدون مقلاع تكون سرعته مماسية لدوران الذراع: <span class="eq">v = ω·Lp</span>. ومع المقلاع تُحسب السرعة من مشتقة موضع نهاية المقلاع (دوران الذراع + دوران المقلاع معًا)، فلا يُفترض أنها سرعة طرف الذراع.</p>
+    </div>
+    <div class="how-item">
+      <h3>٦) حركة المقذوف بعد التحرير</h3>
+      <p>يصبح المقذوف جسمًا حرًا: <span class="eq">ax = 0 ، ay = −g</span>، وتُكامل <span class="eq">v ← v + a·Δt</span> و<span class="eq">x ← x + v·Δt</span> حتى بلوغ الأرض (مع استيفاء دقيق لنقطة السقوط).</p>
+    </div>
+    <div class="how-item">
+      <h3>٧) أثر مقاومة الهواء</h3>
+      <p>عند تفعيلها تضاف قوة <span class="eq">Fd = ½·ρ·Cd·A·v²</span> عكس اتجاه السرعة النسبية للهواء (مع أثر الرياح)، حيث <span class="eq">A = π·d²/4</span> لمقذوف كروي — فتنقص المسافة والارتفاع.</p>
+    </div>
+    <div class="how-item">
+      <h3>٨) الطاقة والكفاءة</h3>
+      <p>تُتابع المحاكاة طاقات الوضع والحركة لكل الأجزاء والطاقة المفقودة بالاحتكاك والسحب، وتتحقق من أن <span class="eq">E(t) + E_مفقودة ≈ E(0)</span> لاكتشاف الأخطاء العددية. الكفاءة = طاقة حركة المقذوف لحظة التحرير ÷ طاقة الوضع التي فقدها الثقل ×100.</p>
+    </div>
+    <div class="how-item" id="how-live">
+      <!-- قيم حية بحسب المدخلات الحالية (تُملأ من ui.js) -->
+    </div>
+  </div>
+</details>
+
+<footer class="app-footer">
+  <p>⚠ هذه محاكاة تعليمية بوحدات النظام الدولي SI — القيم ليست توصيات هندسية لبناء فعلي. الكتلة بالكيلوغرام، والوزن قوة تُحسب بالنيوتن من W = m·g.</p>
+</footer>
+
+<!-- ترتيب التحميل مهم: المحرك الفيزيائي أولًا ثم الواجهة -->
+<script src="js/physics/integrator.js"></script>
+<script src="js/physics/trebuchet.js"></script>
+<script src="js/physics/projectile.js"></script>
+<script src="js/physics/energy.js"></script>
+<script src="js/physics/validation.js"></script>
+<script src="js/simulation.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/scenarios.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
