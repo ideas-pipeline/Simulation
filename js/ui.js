@@ -119,6 +119,54 @@ TrebSim.UI = (function () {
   var toggles = {};  // chk ids
   var onChange = null;
 
+  /**
+   * أقفال التثبيت: أي مفتاح مقفول يحترمه مُحسِّن الكفاءة ولا يغيّره.
+   * مفتاحا الوضع (المقلاع/الثقل المتأرجح) مثبتان افتراضيًا لأن اختيار
+   * الوضع قرار صريح من المستخدم — يمكن فك القفل للسماح بتجربة الوضعين.
+   */
+  var DEFAULT_LOCKS = { slingEnabled: true, swingingCW: true };
+  var locks = Object.assign({}, DEFAULT_LOCKS);
+  var lockButtons = {}; // key → button element
+
+  function refreshLockVisual(key) {
+    var btn = lockButtons[key];
+    if (!btn) return;
+    var on = !!locks[key];
+    btn.textContent = on ? '🔒' : '🔓';
+    btn.classList.toggle('locked', on);
+    btn.title = on
+      ? 'مثبتة: المُحسِّن سيبقيها كما هي — اضغط لفك التثبيت'
+      : 'تثبيت هذه القيمة عند تحسين الكفاءة';
+    var inp = inputs[key];
+    if (inp && inp.row) inp.row.classList.toggle('locked-row', on);
+  }
+
+  function setLock(key, on) {
+    locks[key] = !!on;
+    refreshLockVisual(key);
+  }
+
+  function getLocks() { return Object.assign({}, locks); }
+
+  function clearLocks() {
+    locks = Object.assign({}, DEFAULT_LOCKS);
+    Object.keys(lockButtons).forEach(refreshLockVisual);
+  }
+
+  /** إنشاء زر قفل لمفتاح قابل للتحسين */
+  function makeLockButton(key) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'lock-btn';
+    btn.setAttribute('aria-label', 'تثبيت القيمة عند التحسين');
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      setLock(key, !locks[key]);
+    });
+    lockButtons[key] = btn;
+    return btn;
+  }
+
   function fmt(v, digits) {
     if (v === null || v === undefined || !isFinite(v)) return '—';
     return Number(v).toFixed(digits);
@@ -134,6 +182,12 @@ TrebSim.UI = (function () {
     label.className = 'ctrl-label';
     var name = document.createElement('span');
     name.textContent = ctrl.label;
+    // زر تثبيت للمعاملات الداخلة في فضاء بحث مُحسِّن الكفاءة
+    if (!ctrl.computed && !ctrl.checkbox && !ctrl.select &&
+        TrebSim.Optimizer && TrebSim.Optimizer.LABELS[ctrl.key]) {
+      name.appendChild(document.createTextNode(' '));
+      name.appendChild(makeLockButton(ctrl.key));
+    }
     label.appendChild(name);
     if (ctrl.unit) {
       var unit = document.createElement('span');
@@ -221,6 +275,7 @@ TrebSim.UI = (function () {
       det.appendChild(body);
       container.appendChild(det);
     });
+    Object.keys(lockButtons).forEach(refreshLockVisual);
   }
 
   /** وضع قيم المعاملات في عناصر التحكم */
@@ -313,6 +368,14 @@ TrebSim.UI = (function () {
         refreshDependentState();
         changeCb();
       });
+    });
+    // أقفال وضعي المقلاع والثقل المتأرجح (بجوار الـ chips)
+    [['lock-sling', 'slingEnabled'], ['lock-swing', 'swingingCW']].forEach(function (pair) {
+      var btn = document.getElementById(pair[0]);
+      if (!btn) return;
+      lockButtons[pair[1]] = btn;
+      btn.addEventListener('click', function () { setLock(pair[1], !locks[pair[1]]); });
+      refreshLockVisual(pair[1]);
     });
   }
 
@@ -490,6 +553,9 @@ TrebSim.UI = (function () {
     renderWarnings: renderWarnings,
     renderValidation: renderValidation,
     renderHowLive: renderHowLive,
+    getLocks: getLocks,
+    setLock: setLock,
+    clearLocks: clearLocks,
     fmt: fmt
   };
 })();
