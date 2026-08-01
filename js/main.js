@@ -282,6 +282,7 @@
     document.getElementById('btn-step').addEventListener('click', stepOnce);
     document.getElementById('btn-defaults').addEventListener('click', function () {
       UI.setParams(Sim.defaults());
+      UI.clearLocks();
       doRecompute();
     });
 
@@ -350,15 +351,29 @@
     panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
     optimizeCancelRef = { cancelled: false };
+    var locks = UI.getLocks();
+    var lockedCount = Object.keys(locks).filter(function (k) { return locks[k] && TrebSim.Optimizer.LABELS[k]; }).length;
     TrebSim.Optimizer.optimize(UI.collectParams(), function (frac, bestEff) {
       bar.style.width = Math.round(frac * 100) + '%';
       status.textContent = 'جارٍ تشغيل المحاكاة الفعلية… ' + Math.round(frac * 100) +
-        '% — أفضل كفاءة وُجدت حتى الآن: ' + (bestEff >= 0 ? bestEff.toFixed(1) + '%' : '—');
-    }, optimizeCancelRef).then(function (res) {
+        '% — أفضل كفاءة وُجدت حتى الآن: ' + (bestEff >= 0 ? bestEff.toFixed(1) + '%' : '—') +
+        (lockedCount ? ' | قيم مثبتة: ' + lockedCount : '');
+    }, optimizeCancelRef, locks).then(function (res) {
       optimizeCancelRef = null;
       progress.hidden = true;
       renderOptimizerResult(res);
     });
+  }
+
+  function lockedBarHtml(res) {
+    if (!res.lockedKeys || !res.lockedKeys.length) return '';
+    var names = res.lockedKeys.map(function (k) { return TrebSim.Optimizer.LABELS[k]; });
+    var html = '<p class="panel-note">🔒 قيم مثبتة احترمها البحث ولم يغيّرها: <b>' + names.join('، ') + '</b>';
+    if (res.lockedKeys.indexOf('slingEnabled') !== -1 || res.lockedKeys.indexOf('swingingCW') !== -1) {
+      html += ' — وضع المقلاع/الثقل ثابت كما اخترته؛ فك القفل (🔒 بجوار الزر) للسماح للمُحسِّن بتجربة الوضعين.';
+    }
+    html += '</p>';
+    return html;
   }
 
   function renderOptimizerResult(res) {
@@ -366,8 +381,9 @@
     box.hidden = false;
 
     if (!res.improved) {
-      box.innerHTML = '<p class="panel-note">🎯 إعداداتك الحالية ممتازة — لم يجد البحث (' + res.evaluated +
-        ' تشغيل محاكاة) توليفة أعلى كفاءة ضمن القيود. ' +
+      box.innerHTML = lockedBarHtml(res) +
+        '<p class="panel-note">🎯 إعداداتك الحالية هي الأعلى كفاءة ضمن هذه القيود — لم يجد البحث (' + res.evaluated +
+        ' تشغيل محاكاة) توليفة أفضل. ' +
         (res.baseScore >= 0 ? 'كفاءتك الحالية: <b>' + res.baseScore.toFixed(1) + '%</b>.' : '') + '</p>';
       return;
     }
@@ -379,7 +395,8 @@
         '</td><td class="num better">' + fb + ' ' + unit + '</td></tr>';
     }
     var bs = res.baseStats, ns = res.bestStats;
-    var html = '<table class="opt-compare"><thead><tr><th></th><th>إعداداتك الحالية</th><th>التوليفة المقترحة</th></tr></thead><tbody>';
+    var html = lockedBarHtml(res);
+    html += '<table class="opt-compare"><thead><tr><th></th><th>إعداداتك الحالية</th><th>التوليفة المقترحة</th></tr></thead><tbody>';
     html += row('نسبة الكفاءة', bs ? bs.efficiencyPct : null, ns.efficiencyPct, '%', 1);
     html += row('المسافة الأفقية', bs ? bs.range : null, ns.range, 'm', 1);
     html += row('سرعة الإطلاق', bs ? bs.releaseSpeed : null, ns.releaseSpeed, 'm/s', 1);

@@ -78,11 +78,16 @@ TrebSim.Optimizer = (function () {
   /**
    * التحسين غير المتزامن. onProgress(fractionDone, bestEffSoFar) اختيارية.
    * تعيد Promise بالنتيجة: {base, best, baseScore, bestScore, baseStats,
-   * bestStats, evaluated, changes: [{key, label, from, to}]}
+   * bestStats, evaluated, changes: [{key, label, from, to}], lockedKeys}
    * cancelRef: كائن {cancelled} يمكن ضبطه لإيقاف البحث مبكرًا.
+   *
+   * locks: كائن {key: true} — كل مفتاح «مثبَّت» من المستخدم يُستبعد من
+   * فضاء البحث ويبقى على قيمته حرفيًا، فيصبح السؤال: ما أقصى كفاءة
+   * ممكنة في ظل هذه القيم المثبتة؟
    */
-  function optimize(baseParams, onProgress, cancelRef) {
+  function optimize(baseParams, onProgress, cancelRef, locks) {
     return new Promise(function (resolve) {
+      locks = locks || {};
       var base = Object.assign(TrebSim.Simulation.defaults(), baseParams || {});
       var baseEval = evaluate(base);
       var best = Object.assign({}, base);
@@ -94,6 +99,7 @@ TrebSim.Optimizer = (function () {
       var jobs = [];
       for (var pass = 0; pass < PASSES; pass++) {
         Object.keys(SWEEPS).forEach(function (key) {
+          if (locks[key]) return; // المفاتيح المثبتة خارج البحث
           SWEEPS[key].forEach(function (v) {
             jobs.push({ key: key, value: v });
           });
@@ -139,6 +145,7 @@ TrebSim.Optimizer = (function () {
           baseScore: baseEval.score, bestScore: bestScore,
           baseStats: baseEval.stats, bestStats: bestStats,
           evaluated: evaluated, changes: changes,
+          lockedKeys: Object.keys(locks).filter(function (k) { return locks[k] && LABELS[k]; }),
           improved: bestScore > baseEval.score + 1e-9
         });
       }
