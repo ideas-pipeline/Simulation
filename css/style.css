@@ -244,6 +244,42 @@ html, body {
 .result-item.highlight { background: #e7f0fb; border-color: var(--accent); }
 .result-item.result-warn { background: var(--warn-bg); border-color: var(--warn-border); }
 
+/* ---------- مُحسِّن الكفاءة ---------- */
+.progress-track {
+  height: 10px;
+  background: var(--grid);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.15s;
+}
+.opt-compare { border-collapse: collapse; width: 100%; font-size: 0.88rem; margin: 8px 0; }
+.opt-compare th, .opt-compare td { border-bottom: 1px solid var(--grid); padding: 6px 10px; text-align: center; }
+.opt-compare th { background: #f4f3ef; color: var(--ink-2); }
+.opt-compare td.num { direction: ltr; font-variant-numeric: tabular-nums; }
+.opt-compare td.better { color: #006300; font-weight: 700; }
+.opt-changes { margin: 8px 0; padding: 0; list-style: none; }
+.opt-changes li {
+  border: 1px solid var(--grid);
+  border-radius: 8px;
+  padding: 5px 10px;
+  margin-bottom: 5px;
+  font-size: 0.85rem;
+  background: #fbfaf7;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.opt-changes .delta { direction: ltr; font-variant-numeric: tabular-nums; font-weight: 700; }
+.opt-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
 /* ---------- التحقق الفيزيائي ---------- */
 .validation-panel .vrow { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-bottom: 1px dashed var(--grid); font-size: 0.9rem; }
 .validation-panel .vrow:last-child { border-bottom: none; }
