@@ -58,11 +58,24 @@
       <div class="panel-head">
         <h2>نتائج التجربة</h2>
         <div class="panel-actions">
+          <button id="btn-optimize" class="btn btn-small btn-outline" type="button">✨ حسّن إعداداتي للكفاءة القصوى</button>
           <button id="btn-save-scenario" class="btn btn-small" type="button">💾 حفظ السيناريو الحالي</button>
           <button id="btn-compare-last" class="btn btn-small" type="button">⇄ مقارنة آخر تجربتين</button>
         </div>
       </div>
       <div class="results-grid" id="results-grid"><!-- تُبنى من ui.js --></div>
+    </section>
+
+    <!-- مُحسِّن الكفاءة -->
+    <section class="panel optimizer-panel" id="optimizer-panel" hidden>
+      <h2>مُحسِّن الكفاءة — التوليفة المثلى بناءً على إعداداتك</h2>
+      <p class="panel-note">يبدأ من قيمك الحالية ويجرّب مئات التعديلات بتشغيل المحاكاة الفيزيائية فعليًا (لا تخمين)، مع رفض أي توليفة تتحطم إنشائيًا أو مداها أقل من 10 m. لا يُطبَّق شيء إلا بموافقتك.</p>
+      <div id="optimizer-progress" hidden>
+        <div class="progress-track"><div class="progress-fill" id="optimizer-bar"></div></div>
+        <p class="panel-note" id="optimizer-status">جارٍ البحث…</p>
+        <button id="btn-optimize-cancel" class="btn btn-small" type="button">إيقاف البحث</button>
+      </div>
+      <div id="optimizer-result" hidden></div>
     </section>
 
     <!-- وضع التحقق الفيزيائي -->
@@ -172,6 +185,7 @@
 <script src="js/physics/validation.js"></script>
 <script src="js/physics/structure.js"></script>
 <script src="js/simulation.js"></script>
+<script src="js/optimizer.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/renderer.js"></script>
 <script src="js/ui.js"></script>

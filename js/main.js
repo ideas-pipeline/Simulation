@@ -305,6 +305,11 @@
       document.getElementById('validation-panel').hidden = !e.target.checked;
     });
 
+    document.getElementById('btn-optimize').addEventListener('click', startOptimize);
+    document.getElementById('btn-optimize-cancel').addEventListener('click', function () {
+      if (optimizeCancelRef) optimizeCancelRef.cancelled = true;
+    });
+
     document.getElementById('btn-save-scenario').addEventListener('click', function () {
       var r = TrebSim.Scenarios.save(result);
       if (!r.ok) { alert(r.msg); return; }
@@ -318,6 +323,87 @@
     window.addEventListener('resize', function () {
       renderAt(simTime, true);
       drawCharts(playing ? simTime : undefined);
+    });
+  }
+
+  // ---------------- مُحسِّن الكفاءة ----------------
+  var optimizeCancelRef = null;
+
+  function fmtVal(v) {
+    if (typeof v === 'boolean') return v ? 'مفعّل' : 'معطّل';
+    return (Math.round(v * 100) / 100).toString();
+  }
+
+  function startOptimize() {
+    if (optimizeCancelRef) return; // بحث جارٍ بالفعل
+    pause();
+    var panel = document.getElementById('optimizer-panel');
+    var progress = document.getElementById('optimizer-progress');
+    var resBox = document.getElementById('optimizer-result');
+    var bar = document.getElementById('optimizer-bar');
+    var status = document.getElementById('optimizer-status');
+    panel.hidden = false;
+    progress.hidden = false;
+    resBox.hidden = true;
+    bar.style.width = '0%';
+    status.textContent = 'جارٍ البحث…';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    optimizeCancelRef = { cancelled: false };
+    TrebSim.Optimizer.optimize(UI.collectParams(), function (frac, bestEff) {
+      bar.style.width = Math.round(frac * 100) + '%';
+      status.textContent = 'جارٍ تشغيل المحاكاة الفعلية… ' + Math.round(frac * 100) +
+        '% — أفضل كفاءة وُجدت حتى الآن: ' + (bestEff >= 0 ? bestEff.toFixed(1) + '%' : '—');
+    }, optimizeCancelRef).then(function (res) {
+      optimizeCancelRef = null;
+      progress.hidden = true;
+      renderOptimizerResult(res);
+    });
+  }
+
+  function renderOptimizerResult(res) {
+    var box = document.getElementById('optimizer-result');
+    box.hidden = false;
+
+    if (!res.improved) {
+      box.innerHTML = '<p class="panel-note">🎯 إعداداتك الحالية ممتازة — لم يجد البحث (' + res.evaluated +
+        ' تشغيل محاكاة) توليفة أعلى كفاءة ضمن القيود. ' +
+        (res.baseScore >= 0 ? 'كفاءتك الحالية: <b>' + res.baseScore.toFixed(1) + '%</b>.' : '') + '</p>';
+      return;
+    }
+
+    function row(label, a, b, unit, digits) {
+      var fa = (a === null || a === undefined) ? '—' : a.toFixed(digits);
+      var fb = (b === null || b === undefined) ? '—' : b.toFixed(digits);
+      return '<tr><td>' + label + '</td><td class="num">' + fa + ' ' + unit +
+        '</td><td class="num better">' + fb + ' ' + unit + '</td></tr>';
+    }
+    var bs = res.baseStats, ns = res.bestStats;
+    var html = '<table class="opt-compare"><thead><tr><th></th><th>إعداداتك الحالية</th><th>التوليفة المقترحة</th></tr></thead><tbody>';
+    html += row('نسبة الكفاءة', bs ? bs.efficiencyPct : null, ns.efficiencyPct, '%', 1);
+    html += row('المسافة الأفقية', bs ? bs.range : null, ns.range, 'm', 1);
+    html += row('سرعة الإطلاق', bs ? bs.releaseSpeed : null, ns.releaseSpeed, 'm/s', 1);
+    html += '</tbody></table>';
+
+    html += '<p class="panel-note">التعديلات المقترحة على إعداداتك (' + res.changes.length + '):</p><ul class="opt-changes">';
+    res.changes.forEach(function (c) {
+      html += '<li><span>' + c.label + '</span><span class="delta">' + fmtVal(c.from) + ' ← ' + fmtVal(c.to) + '</span></li>';
+    });
+    html += '</ul>';
+    html += '<p class="panel-note">نتيجة ' + res.evaluated + ' تشغيلًا فعليًا للمحاكاة الفيزيائية، مع رفض أي توليفة تتحطم إنشائيًا أو مداها أقل من ' +
+      TrebSim.Optimizer.MIN_RANGE + ' m.</p>';
+    html += '<div class="opt-actions">' +
+      '<button id="btn-optimize-apply" class="btn btn-primary" type="button">✔ تطبيق التوليفة المقترحة</button>' +
+      '<button id="btn-optimize-close" class="btn" type="button">إغلاق بدون تطبيق</button></div>';
+    box.innerHTML = html;
+
+    document.getElementById('btn-optimize-apply').addEventListener('click', function () {
+      UI.setParams(res.best);
+      document.getElementById('optimizer-panel').hidden = true;
+      doRecompute();
+    });
+    document.getElementById('btn-optimize-close').addEventListener('click', function () {
+      document.getElementById('optimizer-panel').hidden = true;
     });
   }
 
