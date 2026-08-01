@@ -23,6 +23,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # كسر الكاش: استبدال وسم النسخة بمعرّف الـ commit حتى لا يخلط
+      # المتصفح بين index.html جديد وملفات JS/CSS قديمة مخزنة مؤقتًا
+      - name: Stamp asset versions with commit SHA
+        run: sed -i "s/__BUILD__/${GITHUB_SHA::12}/g" index.html
+
       - name: Publish to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
         with:
