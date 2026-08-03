@@ -82,12 +82,17 @@ TrebSim.Renderer = (function () {
       xMin: this.machineView.xMin,
       xMax: Math.max(p.targetDistance + 6, landX + 6, this.machineView.xMax + 4),
       yMin: yLow,
-      yMax: Math.max(maxH + 2, this.machineView.yMax)
+      yMax: Math.max(maxH + 2, this.machineView.yMax, p.wallEnabled ? p.wallHeight + 2 : 0)
     };
     if (!result.release) this.fullView = this.machineView;
   };
 
   Renderer.prototype.setOverlays = function (overlays) { this.overlays = overlays || []; };
+
+  /** حالة جدار الحصار (الضرر التراكمي) من الواجهة الرئيسية */
+  Renderer.prototype.setWallState = function (state) {
+    this.wallState = state || { damagePct: 0, collapsed: false, hits: 0 };
+  };
 
   function lerp(a, b, s) { return a + (b - a) * s; }
   function easeInOut(s) { return s * s * (3 - 2 * s); }
@@ -200,24 +205,28 @@ TrebSim.Renderer = (function () {
 
     if (!r || !frame) return;
 
-    // ---- الهدف
+    // ---- الهدف: جدار قابل للهدم أو علم بسيط
     var tg = W2S(p.targetDistance, 0);
-    ctx.strokeStyle = COLORS.target;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath(); ctx.moveTo(tg.x, tg.y); ctx.lineTo(tg.x, tg.y - 34); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = COLORS.target;
-    ctx.beginPath();
-    ctx.moveTo(tg.x, tg.y - 34);
-    ctx.lineTo(tg.x + 16, tg.y - 28);
-    ctx.lineTo(tg.x, tg.y - 22);
-    ctx.closePath();
-    ctx.fill();
-    ctx.font = '11px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('الهدف', tg.x, tg.y - 52);
-    ctx.fillText(p.targetDistance + ' m', tg.x, tg.y - 40);
+    if (p.wallEnabled) {
+      this._renderWall(p, simTime, tg);
+    } else {
+      ctx.strokeStyle = COLORS.target;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(tg.x, tg.y); ctx.lineTo(tg.x, tg.y - 34); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = COLORS.target;
+      ctx.beginPath();
+      ctx.moveTo(tg.x, tg.y - 34);
+      ctx.lineTo(tg.x + 16, tg.y - 28);
+      ctx.lineTo(tg.x, tg.y - 22);
+      ctx.closePath();
+      ctx.fill();
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('الهدف', tg.x, tg.y - 52);
+      ctx.fillText(p.targetDistance + ' m', tg.x, tg.y - 40);
+    }
 
     // ---- مسارات السيناريوهات المحفوظة (مقارنة)
     var self = this;
@@ -385,6 +394,103 @@ TrebSim.Renderer = (function () {
         ctx.fillText(ov.label, 46, ly);
         ly += 17;
       });
+    }
+  };
+
+  /** رسم جدار الهدف مع الضرر التراكمي وأثر الاصطدام */
+  Renderer.prototype._renderWall = function (p, simTime, tg) {
+    var ctx = this.ctx;
+    var W2S = this.W2S;
+    var r = this.result;
+    var state = this.wallState || { damagePct: 0, collapsed: false, hits: 0 };
+    var mat = TrebSim.Wall.material(p);
+
+    var aBase = W2S(p.targetDistance, 0);
+    var bTop = W2S(p.targetDistance + p.wallThickness, p.wallHeight);
+    var rx = Math.min(aBase.x, bTop.x);
+    var rw = Math.max(2, Math.abs(aBase.x - bTop.x));
+    var ry = bTop.y;
+    var rh = aBase.y - bTop.y;
+
+    if (state.collapsed) {
+      // 💥 ركام الجدار المنهار
+      ctx.fillStyle = mat.dark;
+      var n = 7;
+      for (var i = 0; i < n; i++) {
+        var frac = (i + 0.5) / n;
+        var rr = Math.max(3, rh * 0.09 * (1 - 0.4 * ((i * 37) % 10) / 10));
+        ctx.beginPath();
+        ctx.arc(rx + rw * ((i * 53) % 100) / 100, aBase.y - rr * (0.6 + ((i * 29) % 10) / 14), rr + rw * 0.18 * frac * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.strokeStyle = mat.dark;
+      ctx.setLineDash([3, 4]);
+      ctx.strokeRect(rx, ry, rw, rh); // أثر الجدار السابق
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#d03b3b';
+      ctx.font = 'bold 12px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('💥 انهار الجدار بعد ' + state.hits + ' قذيفة', rx + rw / 2, ry - 8);
+    } else {
+      // جسم الجدار
+      ctx.fillStyle = mat.color;
+      ctx.strokeStyle = mat.dark;
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(rx, ry, rw, rh);
+      ctx.strokeRect(rx, ry, rw, rh);
+      // مداميك أفقية (أو ألواح خشب)
+      ctx.strokeStyle = mat.dark;
+      ctx.lineWidth = 0.8;
+      var course = Math.max(6, 0.5 * this.scale);
+      for (var yy = aBase.y - course; yy > ry; yy -= course) {
+        ctx.beginPath(); ctx.moveTo(rx, yy); ctx.lineTo(rx + rw, yy); ctx.stroke();
+      }
+      // شقوق تتزايد مع الضرر
+      var cracks = Math.min(8, Math.floor(state.damagePct / 12));
+      ctx.strokeStyle = '#2b2a28';
+      ctx.lineWidth = 1.5;
+      for (var c = 0; c < cracks; c++) {
+        var cy0 = ry + rh * (((c * 41) % 90) + 5) / 100;
+        var cx0 = rx + rw * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(cx0, cy0);
+        var px = cx0, py = cy0;
+        for (var s2 = 0; s2 < 4; s2++) {
+          px += (((c + s2) * 31) % 7 - 3) * rw * 0.12;
+          py += rh * 0.06;
+          ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      }
+      // التسمية وشريط الضرر
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = COLORS.ink2;
+      ctx.fillText(mat.name.split(' ')[0] + ' ' + p.wallThickness + ' m — ' + p.targetDistance + ' m', rx + rw / 2, ry - 22);
+      var dmg = Math.min(100, state.damagePct);
+      ctx.fillStyle = dmg >= 60 ? '#d03b3b' : dmg >= 25 ? '#c98500' : '#006300';
+      ctx.fillText('الضرر ' + dmg.toFixed(0) + '% (' + state.hits + ' قذيفة)', rx + rw / 2, ry - 8);
+    }
+
+    // وميض الاصطدام عند لحظة الإصابة
+    if (r && r.wallImpact && simTime >= r.wallImpact.t - 1e-9 && simTime < r.wallImpact.t + 1.5) {
+      var hp = W2S(r.wallImpact.x, r.wallImpact.y);
+      ctx.strokeStyle = '#eb6834';
+      ctx.lineWidth = 2;
+      for (var k = 0; k < 8; k++) {
+        var ang = k * Math.PI / 4;
+        ctx.beginPath();
+        ctx.moveTo(hp.x + 5 * Math.cos(ang), hp.y + 5 * Math.sin(ang));
+        ctx.lineTo(hp.x + 14 * Math.cos(ang), hp.y + 14 * Math.sin(ang));
+        ctx.stroke();
+      }
+      if (r.impact) {
+        ctx.fillStyle = '#d03b3b';
+        ctx.font = 'bold 12px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(r.impact.belowThreshold ? 'ارتداد — بلا ضرر' : 'ضرر +' + r.impact.damagePct.toFixed(1) + '%',
+          hp.x, hp.y - 16);
+      }
     }
   };
 
