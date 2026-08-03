@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>محاكي فيزياء المنجنيق</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E🏹%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="css/style.css?v=0f6fa6d53857">
+<link rel="stylesheet" href="css/style.css?v=778205ec2012">
 </head>
 <body>
 
@@ -64,6 +64,15 @@
         </div>
       </div>
       <div class="results-grid" id="results-grid"><!-- تُبنى من ui.js --></div>
+    </section>
+
+    <!-- جدار الهدف — وضع الحصار -->
+    <section class="panel wall-panel" id="wall-panel" hidden>
+      <div class="panel-head">
+        <h2>🧱 جدار الهدف — وضع الحصار</h2>
+        <button id="btn-wall-rebuild" class="btn btn-small" type="button">🧱 إعادة بناء الجدار</button>
+      </div>
+      <div id="wall-content"></div>
     </section>
 
     <!-- مُحسِّن الكفاءة -->
@@ -164,7 +173,11 @@
       <p>القوى الديناميكية العرضية تولّد عزم انحناء على الذراع الخشبي عند محور الارتكاز: للحمل الطرفي <span class="eq">M = F⊥·L</span> ومعه الحمل الموزع للذراع <span class="eq">M = λ·(α·L³/3 + g·cosθ·L²/2)</span>. إجهاد الانحناء لمقطع مستطيل b×h: <span class="eq">σ = M/S ، S = b·h²/6</span>، ويتحطم الذراع عندما يتجاوز σ معامل تمزق الخشب MOR (بلوط ≈ 90، دردار ≈ 100، صنوبر ≈ 60 MPa)، ومعامل الأمان <span class="eq">SF = MOR/σ</span>. أما حبل المقلاع (قنب) فشدّه <span class="eq">T = Mp·(a⃗−g⃗)·û</span> وينقطع عندما يتجاوز قوة قطعه <span class="eq">F_break = σt·π·d²/4</span> فيتحرر المقذوف مبكرًا. قيم المواد تقريبية تعليمية (خشب جاف) وليست قيم تصميم إنشائي.</p>
     </div>
     <div class="how-item">
-      <h3>٩) الطاقة والكفاءة</h3>
+      <h3>٩) الاصطدام بالجدار وهدمه</h3>
+      <p>عند الاصطدام: طاقة الحركة <span class="eq">KE = ½·m·v²</span> والزخم <span class="eq">p = m·v</span>. «قوة الاصطدام» تحتاج افتراض مسافة انسحاق d لكل مادة، فتُحسب القوة المتوسطة <span class="eq">F = KE ÷ d</span> والضغط <span class="eq">P = F ÷ A</span>. الجدار رأسي، فالمكوّن العمودي فقط يهدم: <span class="eq">KE⊥ = ½·m·vx²</span> — لذا القذيفة المنخفضة المسطحة أنفع من الساقطة من علٍ. سعة هدم منطقة الاختراق <span class="eq">E = u·t·A</span> (u طاقة الهدم النوعية للمادة، t السماكة، A = 0.25 m² ثغرة تكفي لعبور القذيفة)، وضرر كل قذيفة = KE⊥/E، وينهار الجدار عند تراكم 100%. إصابة دون 2% من السعة ترتد بلا ضرر. قيم المواد تقريبية تعليمية.</p>
+    </div>
+    <div class="how-item">
+      <h3>١٠) الطاقة والكفاءة</h3>
       <p>تُتابع المحاكاة طاقات الوضع والحركة لكل الأجزاء والطاقة المفقودة بالاحتكاك والسحب، وتتحقق من أن <span class="eq">E(t) + E_مفقودة ≈ E(0)</span> لاكتشاف الأخطاء العددية. الكفاءة = طاقة حركة المقذوف لحظة التحرير ÷ طاقة الوضع التي فقدها الثقل ×100.</p>
     </div>
     <div class="how-item" id="how-live">
@@ -178,18 +191,19 @@
 </footer>
 
 <!-- ترتيب التحميل مهم: المحرك الفيزيائي أولًا ثم الواجهة -->
-<script src="js/physics/integrator.js?v=0f6fa6d53857"></script>
-<script src="js/physics/trebuchet.js?v=0f6fa6d53857"></script>
-<script src="js/physics/projectile.js?v=0f6fa6d53857"></script>
-<script src="js/physics/energy.js?v=0f6fa6d53857"></script>
-<script src="js/physics/validation.js?v=0f6fa6d53857"></script>
-<script src="js/physics/structure.js?v=0f6fa6d53857"></script>
-<script src="js/simulation.js?v=0f6fa6d53857"></script>
-<script src="js/optimizer.js?v=0f6fa6d53857"></script>
-<script src="js/charts.js?v=0f6fa6d53857"></script>
-<script src="js/renderer.js?v=0f6fa6d53857"></script>
-<script src="js/ui.js?v=0f6fa6d53857"></script>
-<script src="js/scenarios.js?v=0f6fa6d53857"></script>
-<script src="js/main.js?v=0f6fa6d53857"></script>
+<script src="js/physics/integrator.js?v=778205ec2012"></script>
+<script src="js/physics/trebuchet.js?v=778205ec2012"></script>
+<script src="js/physics/projectile.js?v=778205ec2012"></script>
+<script src="js/physics/energy.js?v=778205ec2012"></script>
+<script src="js/physics/validation.js?v=778205ec2012"></script>
+<script src="js/physics/structure.js?v=778205ec2012"></script>
+<script src="js/physics/wall.js?v=778205ec2012"></script>
+<script src="js/simulation.js?v=778205ec2012"></script>
+<script src="js/optimizer.js?v=778205ec2012"></script>
+<script src="js/charts.js?v=778205ec2012"></script>
+<script src="js/renderer.js?v=778205ec2012"></script>
+<script src="js/ui.js?v=778205ec2012"></script>
+<script src="js/scenarios.js?v=778205ec2012"></script>
+<script src="js/main.js?v=778205ec2012"></script>
 </body>
 </html>

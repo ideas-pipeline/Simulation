@@ -301,10 +301,12 @@ html, body {
 .opt-changes .delta { direction: ltr; font-variant-numeric: tabular-nums; font-weight: 700; }
 .opt-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 
-/* ---------- التحقق الفيزيائي ---------- */
-.validation-panel .vrow { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-bottom: 1px dashed var(--grid); font-size: 0.9rem; }
-.validation-panel .vrow:last-child { border-bottom: none; }
-.validation-panel .vrow .vvalue { direction: ltr; font-variant-numeric: tabular-nums; font-weight: 700; }
+/* ---------- التحقق الفيزيائي + لوحة الجدار ---------- */
+.validation-panel .vrow, .wall-panel .vrow { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-bottom: 1px dashed var(--grid); font-size: 0.9rem; }
+.validation-panel .vrow:last-child, .wall-panel .vrow:last-child { border-bottom: none; }
+.validation-panel .vrow .vvalue, .wall-panel .vrow .vvalue { direction: ltr; font-variant-numeric: tabular-nums; font-weight: 700; }
+.wall-panel .damage-fill { background: #d03b3b; }
+.wall-subtitle { font-size: 0.95rem; margin: 10px 0 4px; }
 .validation-panel .vgood { color: #006300; }
 .validation-panel .vbad { color: #d03b3b; }
 .validation-formula { background: #f4f3ef; border-radius: 6px; padding: 6px 10px; direction: ltr; text-align: left; font-family: ui-monospace, Consolas, monospace; font-size: 0.82rem; margin: 8px 0; overflow-x: auto; }

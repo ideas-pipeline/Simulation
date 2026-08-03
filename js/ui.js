@@ -76,9 +76,19 @@ TrebSim.UI = (function () {
       ]
     },
     {
-      id: 'target', title: 'إعداد الهدف', open: true,
+      id: 'target', title: 'الهدف: الجدار (وضع الحصار)', open: true,
       controls: [
-        { key: 'targetDistance', label: 'مسافة الهدف من محور الارتكاز', unit: 'm', min: 5, max: 300, step: 1 }
+        { key: 'targetDistance', label: 'مسافة الهدف من محور الارتكاز', unit: 'm', min: 5, max: 300, step: 1 },
+        { key: 'wallEnabled', label: 'جدار قابل للهدم عند الهدف (عطّله لعلامة هدف بسيطة)', unit: '', checkbox: true },
+        {
+          key: 'wallMaterial', label: 'مادة الجدار', unit: '', requires: 'wallEnabled',
+          select: Object.keys(TrebSim.Wall.MATERIALS).map(function (k) {
+            var m = TrebSim.Wall.MATERIALS[k];
+            return { v: k, t: m.name + ' — طاقة هدم ' + (m.u / 1000) + ' kJ/m³' };
+          })
+        },
+        { key: 'wallThickness', label: 'سماكة الجدار', unit: 'm', min: 0.1, max: 3, step: 0.05, requires: 'wallEnabled' },
+        { key: 'wallHeight', label: 'ارتفاع الجدار', unit: 'm', min: 1, max: 8, step: 0.25, requires: 'wallEnabled' }
       ]
     },
     {
@@ -453,7 +463,9 @@ TrebSim.UI = (function () {
       }
       if (rs.key === 'targetSide') {
         var diff = stats.targetDiff;
-        var txt = diff === null || diff === undefined ? '—'
+        var txt = stats.hitWall ? '🧱 أصاب الجدار'
+          : stats.overWall ? '↷ تجاوز الجدار من فوقه'
+          : diff === null || diff === undefined ? '—'
           : Math.abs(diff) < 0.5 ? '🎯 أصاب الهدف تقريبًا'
           : diff < 0 ? 'سقط قبل الهدف' : 'سقط بعد الهدف';
         val.innerHTML = txt;
