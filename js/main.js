@@ -24,6 +24,29 @@
 
   var renderer = new TrebSim.Renderer.Renderer(document.getElementById('scene'));
 
+  // ---------------- حالة الحصار (ضرر الجدار التراكمي عبر الرميات) ----------------
+  var SIEGE_KEY = 'trebsim.siege.v1';
+  var siege = { key: null, damagePct: 0, hits: 0 };
+  var shotApplied = false; // هل احتُسب ضرر رمية هذا التسجيل؟
+
+  function loadSiege() {
+    try {
+      var raw = localStorage.getItem(SIEGE_KEY);
+      if (raw) siege = JSON.parse(raw);
+    } catch (e) { /* تجاهل */ }
+  }
+  function persistSiege() {
+    try { localStorage.setItem(SIEGE_KEY, JSON.stringify(siege)); } catch (e) { /* تجاهل */ }
+  }
+  function wallKeyOf(p) {
+    return [p.wallMaterial, p.wallThickness, p.wallHeight, p.targetDistance].join('|');
+  }
+  function siegeCollapsed() { return siege.damagePct >= 100; }
+  function resetSiege(key) {
+    siege = { key: key, damagePct: 0, hits: 0 };
+    persistSiege();
+  }
+
   // ---------------- الرسوم البيانية ----------------
   var P = Charts.PALETTE;
   var charts = {
@@ -159,9 +182,15 @@
     if (!f) return '';
     var sf = result.structFailure;
     if (sf && sf.type === 'arm' && simTime >= sf.t - 1e-9) return '⚡ تحطم الذراع — فشلت التجربة';
+    if (result.wallImpact && simTime >= result.wallImpact.t - 1e-9) return '🧱 اصطدم بالجدار';
     if (result.landing && simTime >= result.landing.t - 1e-9) return 'انتهت التجربة';
     if (f.phase === 'arm') return 'تأرجح الذراع';
     return sf && sf.type === 'rope' ? 'طيران المقذوف (بعد انقطاع الحبل)' : 'طيران المقذوف';
+  }
+
+  /** حالة الجدار الحالية للرسم */
+  function currentWallState() {
+    return { damagePct: siege.damagePct, collapsed: siegeCollapsed(), hits: siege.hits };
   }
 
   /** عرض المشهد والحالة عند زمن معين */
@@ -171,6 +200,15 @@
       renderer.render(null, 0);
       document.getElementById('status-line').textContent = '—';
       return;
+    }
+    // احتساب ضرر الرمية مرة واحدة عند بلوغ لحظة الاصطدام بالجدار
+    if (!shotApplied && result.wallImpact && result.impact && t >= result.wallImpact.t - 1e-9) {
+      shotApplied = true;
+      siege.hits += 1;
+      siege.damagePct += result.impact.damagePct;
+      persistSiege();
+      renderer.setWallState(currentWallState());
+      renderWallPanel(result);
     }
     var f = frameAt(t);
     renderer.render(f, t);
@@ -202,7 +240,12 @@
 
   function play() {
     if (!result || !result.ok || playing) return;
-    if (simTime >= result.totalTime) { simTime = 0; frameIdx = 0; }
+    // إذا انهار الجدار بعد آخر حساب، أعد الحساب لتمر القذائف عبر الثغرة
+    if (result.params.wallEnabled && !!result.params.wallCollapsed !== siegeCollapsed()) {
+      doRecompute();
+      if (!result || !result.ok) return;
+    }
+    if (simTime >= result.totalTime) { simTime = 0; frameIdx = 0; shotApplied = false; }
     playing = true;
     lastTs = null;
     updatePlayButtons();
@@ -219,6 +262,7 @@
   function restart() {
     simTime = 0;
     frameIdx = 0;
+    shotApplied = false; // كل إعادة تشغيل كاملة = رمية جديدة على الجدار
     if (!playing) { play(); } else { lastTs = null; }
     renderAt(0, true);
   }
@@ -249,6 +293,13 @@
   function doRecompute() {
     pause();
     var params = UI.collectParams();
+    // جدار الحصار: تغيير مواصفاته = إعادة بنائه، وانهياره يفتح ثغرة للقذائف
+    if (params.wallEnabled) {
+      var wk = wallKeyOf(params);
+      if (siege.key !== wk) resetSiege(wk);
+      params.wallCollapsed = siegeCollapsed();
+    }
+    shotApplied = false;
     result = Sim.run(params);
 
     UI.renderWarnings(result.errors, result.warnings);
@@ -260,6 +311,8 @@
     if (result.ok) {
       renderer.setResult(result);
       renderer.setOverlays(TrebSim.Scenarios.getOverlays());
+      renderer.setWallState(currentWallState());
+      renderWallPanel(result);
       buildChartData();
       simTime = 0;
       frameIdx = 0;
@@ -306,6 +359,11 @@
       document.getElementById('validation-panel').hidden = !e.target.checked;
     });
 
+    document.getElementById('btn-wall-rebuild').addEventListener('click', function () {
+      resetSiege(wallKeyOf(UI.collectParams()));
+      doRecompute();
+    });
+
     document.getElementById('btn-optimize').addEventListener('click', startOptimize);
     document.getElementById('btn-optimize-cancel').addEventListener('click', function () {
       if (optimizeCancelRef) optimizeCancelRef.cancelled = true;
@@ -325,6 +383,55 @@
       renderAt(simTime, true);
       drawCharts(playing ? simTime : undefined);
     });
+  }
+
+  // ---------------- لوحة جدار الحصار ----------------
+  function renderWallPanel(res) {
+    var panel = document.getElementById('wall-panel');
+    var p = res && res.ok ? res.params : UI.collectParams();
+    if (!p.wallEnabled) { panel.hidden = true; return; }
+    panel.hidden = false;
+
+    var mat = TrebSim.Wall.material(p);
+    var cap = TrebSim.Wall.capacity(p);
+    var dmg = Math.min(100, siege.damagePct);
+    var collapsed = siegeCollapsed();
+    var statusTxt = collapsed
+      ? '💥 انهار الجدار بعد ' + siege.hits + ' قذيفة — القذائف القادمة تمر عبر الثغرة'
+      : dmg >= 60 ? '⚠ متشقق بشدة' : dmg >= 25 ? 'متصدع' : '✔ سليم';
+
+    var html = '<p class="panel-note">' + mat.name + ' — سماكة ' + p.wallThickness + ' m × ارتفاع ' + p.wallHeight +
+      ' m عند ' + p.targetDistance + ' m | سعة هدم منطقة الاختراق E = u·t·A = <b>' + (cap / 1000).toFixed(0) +
+      ' kJ</b> (u = ' + (mat.u / 1000) + ' kJ/m³، A = ' + TrebSim.Wall.A_BREACH + ' m²)</p>';
+
+    html += '<div class="progress-track"><div class="progress-fill damage-fill" style="width:' + dmg +
+      '%"></div></div>';
+    html += '<p class="panel-note"><b>الضرر التراكمي: ' + dmg.toFixed(1) + '%</b> | القذائف: ' + siege.hits +
+      ' | الحالة: <b>' + statusTxt + '</b></p>';
+
+    if (res && res.impact) {
+      var im = res.impact;
+      function vrow(lab, val) {
+        return '<div class="vrow"><span>' + lab + '</span><span class="vvalue">' + val + '</span></div>';
+      }
+      html += '<h3 class="wall-subtitle">قوة هذه القذيفة حال الاصطدام</h3>';
+      html += vrow('سرعة الاصطدام', im.speed.toFixed(2) + ' m/s (زاوية سقوط ' + im.incidenceDeg.toFixed(0) + '° من الأفقي)');
+      html += vrow('طاقة الحركة KE = ½mv²', (im.ke / 1000).toFixed(2) + ' kJ');
+      html += vrow('الطاقة العمودية الهادمة KE⊥ = ½m·vx²', (im.keNormal / 1000).toFixed(2) + ' kJ');
+      html += vrow('الزخم p = m·v', im.momentum.toFixed(1) + ' kg·m/s');
+      html += vrow('القوة المتوسطة F = KE/d (انسحاق d = ' + (im.crush * 100).toFixed(1) + ' cm)', (im.avgForce / 1000).toFixed(1) + ' kN');
+      html += vrow('ضغط الاصطدام P = F/A', (im.pressure / 1e6).toFixed(1) + ' MPa');
+      html += vrow('ضرر هذه القذيفة', im.belowThreshold ? 'دون العتبة المرنة — ارتداد بلا ضرر' : im.damagePct.toFixed(1) + ' %');
+      if (!collapsed && !im.belowThreshold && im.damagePct > 0) {
+        var remaining = Math.max(0, Math.ceil((100 - siege.damagePct) / im.damagePct));
+        html += vrow('قذائف مماثلة متبقية للانهيار', remaining === 0 ? 'الانهيار وشيك!' : '≈ ' + remaining + ' قذيفة');
+      }
+    } else if (res && res.stats && res.stats.overWall) {
+      html += '<p class="panel-note">↷ آخر قذيفة تجاوزت الجدار من فوقه وسقطت خلفه.</p>';
+    } else if (res && res.landing) {
+      html += '<p class="panel-note">⤵ آخر قذيفة سقطت قبل الجدار ولم تصبه.</p>';
+    }
+    document.getElementById('wall-content').innerHTML = html;
   }
 
   // ---------------- مُحسِّن الكفاءة ----------------
@@ -426,6 +533,7 @@
 
   // ---------------- الإقلاع ----------------
   function boot() {
+    loadSiege();
     UI.build(document.getElementById('control-groups'), recompute);
     UI.bindToggles(recompute);
     UI.buildResults(document.getElementById('results-grid'));

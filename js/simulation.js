@@ -58,6 +58,12 @@ TrebSim.Simulation = (function () {
       timeStep: 0.005,       // s
       targetDistance: 20,    // m موقع الهدف
       integrator: 'rk4',     // 'rk4' | 'euler'
+      // --- جدار الهدف (وضع الحصار)
+      wallEnabled: true,
+      wallMaterial: 'stone', // خشب/طوب/حجر/خرسانة
+      wallThickness: 0.6,    // m سماكة الجدار
+      wallHeight: 4,         // m ارتفاع الجدار
+      wallCollapsed: false,  // (داخلي) جدار منهار — تمر القذائف عبر الثغرة
       // --- التحليل الإنشائي (تجربة واقعية: متى يتحطم المنجنيق؟)
       structuralEnabled: true,
       armWood: 'oak',        // نوع خشب الذراع
@@ -327,6 +333,8 @@ TrebSim.Simulation = (function () {
     // ================= الطور الثاني: طيران المقذوف =================
     var flightStart = null;
     var maxHeight = null;
+    var wallImpact = null;  // اصطدام بجدار الهدف
+    var overWall = false;   // عبر فوق الجدار
 
     if (releaseInfo) {
       if (releaseInfo.y <= 0) {
@@ -394,10 +402,33 @@ TrebSim.Simulation = (function () {
           // كشف الاصطدام بالأرض مع استيفاء خطي لنقطة السقوط
           var hit = Projectile.groundCollision(fyPrev, fy, ftPrev, dt);
 
+          // ===== اعتراض جدار الهدف (وجهه عند x = مسافة الهدف) =====
+          // الجدار المنهار لا يعترض — تمر القذائف عبر الثغرة
+          if (p.wallEnabled && !p.wallCollapsed && fyPrev[0] < p.targetDistance && fy[0] >= p.targetDistance) {
+            var sWall = (p.targetDistance - fyPrev[0]) / (fy[0] - fyPrev[0]);
+            var yAtWall = fyPrev[1] + (fy[1] - fyPrev[1]) * sWall;
+            // إن حدث اصطدام أرضي في نفس الخطوة، الأسبق زمنيًا هو الفعلي
+            var sGround = hit ? (fyPrev[1] / (fyPrev[1] - fy[1])) : 2;
+            if (yAtWall >= 0 && yAtWall <= p.wallHeight && sWall <= sGround) {
+              var lerpW = function (a, b) { return a + (b - a) * sWall; };
+              wallImpact = {
+                t: ftPrev + sWall * dt,
+                x: p.targetDistance,
+                y: yAtWall,
+                vx: lerpW(fyPrev[2], fy[2]),
+                vy: lerpW(fyPrev[3], fy[3])
+              };
+              wallImpact.speed = Math.hypot(wallImpact.vx, wallImpact.vy);
+              hit = null; // الجدار أوقف الطيران قبل الأرض
+            } else if (yAtWall > p.wallHeight) {
+              overWall = true; // عبر فوق الجدار وسيسقط خلفه
+            }
+          }
+
           var sArm2 = Trebuchet.unpackState(pAfter, yArm);
           var geoArm2 = Trebuchet.geometry(pAfter, sArm2.q);
           var enArm2 = Energy.armPhaseEnergies(pAfter, sArm2.q, sArm2.qd);
-          var st = hit || { t: ft, x: fy[0], y: fy[1], vx: fy[2], vy: fy[3] };
+          var st = wallImpact || hit || { t: ft, x: fy[0], y: fy[1], vx: fy[2], vy: fy[3] };
           var enP = Energy.flightPhaseProjectileEnergies(p, st.x, st.y, st.vx, st.vy);
 
           frames.push({
@@ -413,6 +444,7 @@ TrebSim.Simulation = (function () {
             }
           });
 
+          if (wallImpact) break; // اصطدم بالجدار — انتهى الطيران عنده
           if (hit) {
             landing = { t: hit.t, x: hit.x, vx: hit.vx, vy: hit.vy, speed: Math.hypot(hit.vx, hit.vy) };
             break;
@@ -460,29 +492,55 @@ TrebSim.Simulation = (function () {
     // ================= النتائج =================
     var stats = null;
     var validation = null;
+    var impact = null;
     if (releaseInfo) {
       var effPct = Energy.efficiency(releaseInfo.keProj, releaseInfo.cwDrop, p);
       var initialPE = p.counterweightMass * p.gravity * releaseInfo.cwDrop;
+      var flightEnd = wallImpact || landing; // نهاية الطيران: جدار أو أرض
       stats = {
-        range: landing ? landing.x : null,                     // m من محور الارتكاز
-        flightDistance: landing ? (landing.x - releaseInfo.x) : null, // m منذ التحرير
-        flightTime: landing ? (landing.t - releaseInfo.t) : null,
+        range: flightEnd ? flightEnd.x : null,                 // m من محور الارتكاز
+        flightDistance: flightEnd ? (flightEnd.x - releaseInfo.x) : null,
+        flightTime: flightEnd ? (flightEnd.t - releaseInfo.t) : null,
         maxHeight: maxHeight,
         releaseSpeed: releaseInfo.speed,
         releaseAngleDeg: releaseInfo.angleDeg,
         armThetaAtReleaseDeg: releaseInfo.armThetaDeg,
-        impactSpeed: landing ? landing.speed : null,
+        impactSpeed: flightEnd ? (wallImpact ? wallImpact.speed : landing.speed) : null,
         omegaAtRelease: releaseInfo.omega,
         maxAlpha: maxAlpha,
         initialPE: initialPE,
         keAtRelease: releaseInfo.keProj,
         efficiencyPct: effPct,
         targetDistance: p.targetDistance,
-        targetDiff: landing ? (landing.x - p.targetDistance) : null,
+        targetDiff: wallImpact ? 0 : (landing ? landing.x - p.targetDistance : null),
+        hitWall: !!wallImpact,
+        overWall: overWall && !wallImpact,
         energyDriftPct: maxEnergyDrift
       };
-      if (landing) {
-        validation = Validation.compare(releaseInfo, landing.x, landing.t - releaseInfo.t, p);
+      if (wallImpact) {
+        // مقاييس الاصطدام بالجدار وضرر هذه القذيفة
+        var metrics = TrebSim.Wall.impactMetrics(p, wallImpact.vx, wallImpact.vy);
+        impact = Object.assign({}, metrics, {
+          hitY: wallImpact.y,
+          capacity: TrebSim.Wall.capacity(p),
+          threshold: TrebSim.Wall.threshold(p),
+          damagePct: TrebSim.Wall.hitDamagePct(p, metrics.keNormal)
+        });
+        impact.belowThreshold = impact.damagePct === 0;
+        if (impact.belowThreshold) {
+          warnings.push('ارتدت القذيفة عن الجدار بلا ضرر يُذكر — طاقتها العمودية (' +
+            (metrics.keNormal / 1000).toFixed(2) + ' kJ) دون عتبة الضرر المرنة (' +
+            (impact.threshold / 1000).toFixed(1) + ' kJ).');
+        }
+        validation = { applicable: false, reason: 'اعترض جدارُ الهدف مسارَ الطيران قبل بلوغ الأرض — عطّل الجدار للمقارنة التحليلية' };
+      } else {
+        if (overWall) {
+          warnings.push('تجاوز المقذوف الجدار من فوقه (ارتفاع الجدار ' + p.wallHeight +
+            ' m) وسقط خلفه — اخفض زاوية التحرير أو مسار القذيفة لإصابته.');
+        }
+        if (landing) {
+          validation = Validation.compare(releaseInfo, landing.x, landing.t - releaseInfo.t, p);
+        }
       }
     }
 
@@ -495,6 +553,8 @@ TrebSim.Simulation = (function () {
       dt: dt,
       release: releaseInfo,
       landing: landing,
+      wallImpact: wallImpact,
+      impact: impact,
       stats: stats,
       validation: validation,
       structural: structural,
