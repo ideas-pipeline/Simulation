@@ -23,23 +23,23 @@ TrebSim.UI = (function () {
             { v: 'fat', t: 'ذراع عائمة FAT — ثقل يسقط رأسيًا ومحور منزلق' }
           ]
         },
-        { key: 'longArm', label: 'طول الذراع الطويل', unit: 'm', min: 1, max: 10, step: 0.1 },
-        { key: 'shortArm', label: 'طول الذراع القصير', unit: 'm', min: 0.3, max: 5, step: 0.05 },
+        { key: 'longArm', label: 'طول الذراع الطويل', unit: 'm', min: 1, max: 18, step: 0.1 },
+        { key: 'shortArm', label: 'طول الذراع القصير', unit: 'm', min: 0.3, max: 8, step: 0.05 },
         { key: 'totalArm', label: 'طول الذراع الكلي', unit: 'm', computed: true },
-        { key: 'pivotHeight', label: 'ارتفاع محور الارتكاز', unit: 'm', min: 0.5, max: 10, step: 0.1 },
-        { key: 'startAngleDeg', label: 'زاوية بداية الذراع (من الأفقي)', unit: '°', min: -80, max: 0, step: 1 },
+        { key: 'pivotHeight', label: 'ارتفاع محور الارتكاز', unit: 'm', min: 0.5, max: 18, step: 0.1 },
+        { key: 'startAngleDeg', label: 'زاوية بداية الذراع (من الأفقي)', unit: '°', min: -85, max: 0, step: 1 },
         { key: 'releaseAngleDeg', label: 'زاوية تحرير المقذوف', unit: '°', min: -20, max: 85, step: 1 },
-        { key: 'slingLength', label: 'طول المقلاع', unit: 'm', min: 0.2, max: 8, step: 0.1, requires: 'slingEnabled' },
+        { key: 'slingLength', label: 'طول المقلاع', unit: 'm', min: 0.2, max: 16, step: 0.1, requires: 'slingEnabled' },
         { key: 'hangerLength', label: 'طول تعليق الثقل المتأرجح', unit: 'm', min: 0.1, max: 5, step: 0.05, requires: 'swingingCW' }
       ]
     },
     {
       id: 'masses', title: 'الكتل وتوزيعها', open: true,
       controls: [
-        { key: 'projectileMass', label: 'كتلة المقذوف', unit: 'kg', min: 0.5, max: 100, step: 0.5 },
-        { key: 'counterweightMass', label: 'كتلة الثقل الموازن', unit: 'kg', min: 10, max: 2000, step: 5 },
-        { key: 'armMass', label: 'كتلة ذراع المنجنيق', unit: 'kg', min: 1, max: 500, step: 1 },
-        { key: 'armComPos', label: 'موقع مركز كتلة الذراع (+ نحو الطرف الطويل)', unit: 'm', min: -3, max: 5, step: 0.05 },
+        { key: 'projectileMass', label: 'كتلة المقذوف', unit: 'kg', min: 0.5, max: 500, step: 0.5 },
+        { key: 'counterweightMass', label: 'كتلة الثقل الموازن', unit: 'kg', min: 10, max: 40000, step: 10 },
+        { key: 'armMass', label: 'كتلة ذراع المنجنيق', unit: 'kg', min: 1, max: 5000, step: 1 },
+        { key: 'armComPos', label: 'موقع مركز كتلة الذراع (+ نحو الطرف الطويل)', unit: 'm', min: -8, max: 18, step: 0.05 },
         { key: 'armInertiaCoeff', label: 'توزيع كتلة الذراع (معامل القصور k — للذراع المنتظم k = 1/12 ≈ 0.083)', unit: '', min: 0.02, max: 0.3, step: 0.005 }
       ]
     },
@@ -48,17 +48,17 @@ TrebSim.UI = (function () {
       controls: [
         { key: 'structuralEnabled', label: 'تفعيل تحليل التحطم الواقعي', unit: '', checkbox: true },
         {
-          key: 'armWood', label: 'نوع خشب الذراع', unit: '', requires: 'structuralEnabled',
+          key: 'armWood', label: 'مادة الذراع', unit: '', requires: 'structuralEnabled',
           select: Object.keys(TrebSim.Structure.WOODS).map(function (k) {
             var w = TrebSim.Structure.WOODS[k];
             return { v: k, t: w.name + ' — MOR ' + (w.mor / 1e6) + ' MPa، ρ ' + w.rho + ' kg/m³' };
           })
         },
-        { key: 'armWidth', label: 'عرض مقطع الذراع b', unit: 'm', min: 0.05, max: 0.5, step: 0.005, requires: 'structuralEnabled' },
-        { key: 'armHeight', label: 'ارتفاع مقطع الذراع h', unit: 'm', min: 0.05, max: 0.6, step: 0.005, requires: 'structuralEnabled' },
+        { key: 'armWidth', label: 'عرض مقطع الذراع b', unit: 'm', min: 0.05, max: 1.0, step: 0.005, requires: 'structuralEnabled' },
+        { key: 'armHeight', label: 'ارتفاع مقطع الذراع h', unit: 'm', min: 0.05, max: 1.2, step: 0.005, requires: 'structuralEnabled' },
         { key: 'autoArmMass', label: 'حساب كتلة الذراع تلقائيًا من المادة والأبعاد (M = ρ·b·h·L)', unit: '', checkbox: true, requires: 'structuralEnabled' },
         { key: 'armMassComputed', label: 'كتلة الذراع من المادة والأبعاد', unit: 'kg', computed: true },
-        { key: 'ropeDiameter', label: 'قطر حبل المقلاع (قنب)', unit: 'm', min: 0.005, max: 0.06, step: 0.001, requires: ['structuralEnabled', 'slingEnabled'] }
+        { key: 'ropeDiameter', label: 'قطر حبل المقلاع (قنب)', unit: 'm', min: 0.005, max: 0.25, step: 0.001, requires: ['structuralEnabled', 'slingEnabled'] }
       ]
     },
     {
@@ -85,7 +85,7 @@ TrebSim.UI = (function () {
     {
       id: 'target', title: 'الهدف: الجدار (وضع الحصار)', open: true,
       controls: [
-        { key: 'targetDistance', label: 'مسافة الهدف من محور الارتكاز', unit: 'm', min: 5, max: 300, step: 1 },
+        { key: 'targetDistance', label: 'مسافة الهدف من محور الارتكاز', unit: 'm', min: 5, max: 1500, step: 1 },
         { key: 'wallEnabled', label: 'جدار قابل للهدم عند الهدف (عطّله لعلامة هدف بسيطة)', unit: '', checkbox: true },
         {
           key: 'wallMaterial', label: 'مادة الجدار', unit: '', requires: 'wallEnabled',

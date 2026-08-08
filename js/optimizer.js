@@ -30,16 +30,16 @@ TrebSim.Optimizer = (function () {
   var SWEEPS = {
     swingingCW: [false, true],
     slingEnabled: [false, true],
-    releaseAngleDeg: [0, 10, 20, 30, 40, 45, 50, 55, 60, 70],
-    startAngleDeg: [-70, -60, -50, -45, -35, -25],
-    longArm: [3, 3.5, 4, 4.5, 5, 5.5, 6, 7],
-    shortArm: [0.8, 1, 1.2, 1.5, 1.8, 2.2],
-    armMass: [10, 15, 25, 40, 60, 90],
-    counterweightMass: [100, 150, 200, 300, 450, 600, 900, 1200],
-    projectileMass: [5, 10, 15, 20, 30],
+    releaseAngleDeg: [0, 10, 20, 30, 40, 45, 50, 55, 60, 70, 75],
+    startAngleDeg: [-80, -70, -60, -50, -45, -35, -25],
+    longArm: [3, 3.5, 4, 4.5, 5, 5.5, 6, 7, 10, 14, 18],
+    shortArm: [0.8, 1, 1.2, 1.5, 1.8, 2.2, 3, 4],
+    armMass: [10, 15, 25, 40, 60, 90, 200, 500],
+    counterweightMass: [100, 150, 200, 300, 450, 600, 900, 1200, 3000, 8000, 20000, 40000],
+    projectileMass: [5, 10, 15, 20, 30, 60, 100, 200],
     hangerLength: [0.3, 0.5, 0.8, 1.2, 1.6],
-    slingLength: [1, 1.5, 2, 2.5, 3, 4, 5],
-    pivotHeight: [2, 2.5, 3, 4, 5]
+    slingLength: [1, 1.5, 2, 2.5, 3, 4, 5, 8, 12, 16],
+    pivotHeight: [2, 2.5, 3, 4, 5, 8, 12, 16]
   };
 
   /** الأسماء العربية للمعاملات (لعرض «ما الذي تغيّر») */
