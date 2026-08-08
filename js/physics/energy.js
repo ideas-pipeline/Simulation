@@ -29,9 +29,13 @@ TrebSim.Energy = (function () {
     var g = p.gravity;
     var w = qd.theta;
 
-    var iArm = Trebuchet.armInertiaAboutPivot(p);
-
-    var keArm = 0.5 * iArm * w * w;
+    // طاقة الذراع = انتقال مركز كتلته + دوران حول مركز الكتلة
+    // (تكافئ ½·I_pivot·ω² للمحور الثابت بمبرهنة المحور الموازي،
+    //  وتصح أيضًا للذراع العائمة حيث يتحرك المحور نفسه)
+    var Ltot = p.longArm + p.shortArm;
+    var iCom = p.armInertiaCoeff * p.armMass * Ltot * Ltot;
+    var keArm = 0.5 * iCom * w * w
+      + 0.5 * p.armMass * (vel.armComV.x * vel.armComV.x + vel.armComV.y * vel.armComV.y);
     var keCW = 0.5 * p.counterweightMass * (vel.cwV.x * vel.cwV.x + vel.cwV.y * vel.cwV.y);
     var keProj = 0.5 * p.projectileMass * (vel.projV.x * vel.projV.x + vel.projV.y * vel.projV.y);
 
