@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>محاكي فيزياء المنجنيق</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E🏹%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="css/style.css?v=778205ec2012">
+<link rel="stylesheet" href="css/style.css?v=a0f6bc6fa690">
 </head>
 <body>
 
@@ -180,6 +180,10 @@
       <h3>١٠) الطاقة والكفاءة</h3>
       <p>تُتابع المحاكاة طاقات الوضع والحركة لكل الأجزاء والطاقة المفقودة بالاحتكاك والسحب، وتتحقق من أن <span class="eq">E(t) + E_مفقودة ≈ E(0)</span> لاكتشاف الأخطاء العددية. الكفاءة = طاقة حركة المقذوف لحظة التحرير ÷ طاقة الوضع التي فقدها الثقل ×100.</p>
     </div>
+    <div class="how-item">
+      <h3>١١) نمط الذراع العائمة (Floating Arm Trebuchet)</h3>
+      <p>المحور غير مثبت: يتدحرج على سكة أفقية بينما يسقط الثقل <b>رأسيًا خالصًا</b> في قناة انزلاق — قيدان هندسيان يجعلان موضع المحور <span class="eq">x = −Lc·cosθ</span> فيبقى متجه وزن الثقل منطبقًا على حركته طوال السقوط (أقصى شغل ممكن من الجاذبية). الطاقة الحركية <span class="eq">T = ½·A(θ)·θ̇²</span> بمصفوفة كتلة متغيرة مع الوضع، وتُحل معادلات لاغرانج بحدود كريستوفل، ويتحقق من الحل فحص حفظ الطاقة. لهذا تتفوق كفاءته على المحور الثابت — وهو تصميم حديث تستخدمه فرق الهندسة في المسابقات.</p>
+    </div>
     <div class="how-item" id="how-live">
       <!-- قيم حية بحسب المدخلات الحالية (تُملأ من ui.js) -->
     </div>
@@ -191,19 +195,19 @@
 </footer>
 
 <!-- ترتيب التحميل مهم: المحرك الفيزيائي أولًا ثم الواجهة -->
-<script src="js/physics/integrator.js?v=778205ec2012"></script>
-<script src="js/physics/trebuchet.js?v=778205ec2012"></script>
-<script src="js/physics/projectile.js?v=778205ec2012"></script>
-<script src="js/physics/energy.js?v=778205ec2012"></script>
-<script src="js/physics/validation.js?v=778205ec2012"></script>
-<script src="js/physics/structure.js?v=778205ec2012"></script>
-<script src="js/physics/wall.js?v=778205ec2012"></script>
-<script src="js/simulation.js?v=778205ec2012"></script>
-<script src="js/optimizer.js?v=778205ec2012"></script>
-<script src="js/charts.js?v=778205ec2012"></script>
-<script src="js/renderer.js?v=778205ec2012"></script>
-<script src="js/ui.js?v=778205ec2012"></script>
-<script src="js/scenarios.js?v=778205ec2012"></script>
-<script src="js/main.js?v=778205ec2012"></script>
+<script src="js/physics/integrator.js?v=a0f6bc6fa690"></script>
+<script src="js/physics/trebuchet.js?v=a0f6bc6fa690"></script>
+<script src="js/physics/projectile.js?v=a0f6bc6fa690"></script>
+<script src="js/physics/energy.js?v=a0f6bc6fa690"></script>
+<script src="js/physics/validation.js?v=a0f6bc6fa690"></script>
+<script src="js/physics/structure.js?v=a0f6bc6fa690"></script>
+<script src="js/physics/wall.js?v=a0f6bc6fa690"></script>
+<script src="js/simulation.js?v=a0f6bc6fa690"></script>
+<script src="js/optimizer.js?v=a0f6bc6fa690"></script>
+<script src="js/charts.js?v=a0f6bc6fa690"></script>
+<script src="js/renderer.js?v=a0f6bc6fa690"></script>
+<script src="js/ui.js?v=a0f6bc6fa690"></script>
+<script src="js/scenarios.js?v=a0f6bc6fa690"></script>
+<script src="js/main.js?v=a0f6bc6fa690"></script>
 </body>
 </html>

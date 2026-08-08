@@ -16,6 +16,13 @@ TrebSim.UI = (function () {
     {
       id: 'dims', title: 'أبعاد وزوايا المنجنيق', open: true,
       controls: [
+        {
+          key: 'armMode', label: 'نظام المحور', unit: '',
+          select: [
+            { v: 'standard', t: 'محور ثابت (منجنيق تقليدي)' },
+            { v: 'fat', t: 'ذراع عائمة FAT — ثقل يسقط رأسيًا ومحور منزلق' }
+          ]
+        },
         { key: 'longArm', label: 'طول الذراع الطويل', unit: 'm', min: 1, max: 10, step: 0.1 },
         { key: 'shortArm', label: 'طول الذراع القصير', unit: 'm', min: 0.3, max: 5, step: 0.05 },
         { key: 'totalArm', label: 'طول الذراع الكلي', unit: 'm', computed: true },
@@ -340,11 +347,20 @@ TrebSim.UI = (function () {
       if (v !== clamped) { com.number.value = clamped; com.range.value = clamped; }
     }
 
+    // الذراع العائمة: الثقل مقيد في قناة — خيار التأرجح غير متاح
+    var fatMode = p.armMode === 'fat';
+    if (toggles.swing) {
+      toggles.swing.disabled = fatMode;
+      var swingChip = toggles.swing.closest('.chip');
+      if (swingChip) swingChip.classList.toggle('chip-disabled', fatMode);
+      if (lockButtons.swingingCW) lockButtons.swingingCW.disabled = fatMode;
+    }
+
     // شرط تفعيل صف تحكم: كل مفاتيح requires (نص أو مصفوفة) يجب أن تكون مفعلة
     function reqOn(k) {
       if (k === 'dragEnabled') return toggles.drag.checked;
       if (k === 'slingEnabled') return toggles.sling.checked;
-      if (k === 'swingingCW') return toggles.swing.checked;
+      if (k === 'swingingCW') return toggles.swing.checked && !fatMode;
       var dep = inputs[k];
       return dep && dep.checkbox ? dep.checkbox.checked : true;
     }
