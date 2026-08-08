@@ -56,6 +56,7 @@ TrebSim.Renderer = (function () {
     var p = result.params;
     var Ls = p.slingEnabled ? p.slingLength : 0;
     var Lh = p.swingingCW ? p.hangerLength : 0;
+    var fat = p.armMode === 'fat';
 
     // مسار الطيران للمتقطع
     for (var i = 0; i < result.frames.length; i++) {
@@ -71,10 +72,10 @@ TrebSim.Renderer = (function () {
     }
 
     this.machineView = {
-      xMin: -(p.longArm + Ls + 1.2),
+      xMin: -(p.longArm + (fat ? p.shortArm : 0) + Ls + 1.2),
       xMax: p.shortArm + Lh + 1.5,
       yMin: yLow,
-      yMax: p.pivotHeight + p.longArm + Math.max(Ls * 0.4, 0) + 1
+      yMax: p.pivotHeight + p.longArm + (fat ? p.shortArm * 0.7 : 0) + Math.max(Ls * 0.4, 0) + 1
     };
     var maxH = (result.stats && result.stats.maxHeight) || this.machineView.yMax;
     var landX = result.landing ? result.landing.x : 10;
@@ -284,17 +285,28 @@ TrebSim.Renderer = (function () {
         (ld.x + tg.x) / 2, ld.y - 18);
     }
 
-    // ---- قاعدة المنجنيق (هيكل A)
-    var pv = W2S(0, p.pivotHeight);
-    var baseHalf = Math.max(0.5, p.pivotHeight * 0.45);
-    var bl = W2S(-baseHalf, 0), br = W2S(baseHalf, 0);
-    ctx.strokeStyle = COLORS.woodDark;
-    ctx.lineWidth = Math.max(3, 0.14 * this.scale);
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(bl.x, bl.y); ctx.lineTo(pv.x, pv.y); ctx.lineTo(br.x, br.y);
-    ctx.moveTo(bl.x, bl.y); ctx.lineTo(br.x, br.y);
-    ctx.stroke();
+    // ---- قاعدة المنجنيق: هيكل A ثابت أو أبراج الذراع العائمة
+    var pv;
+    if (p.armMode === 'fat') {
+      // موضع المحور المنزلق على السكة (على امتداد الذراع من طرفها القصير)
+      var frac = p.shortArm / (p.shortArm + p.longArm);
+      pv = W2S(
+        frame.shortEnd.x + (frame.tip.x - frame.shortEnd.x) * frac,
+        frame.shortEnd.y + (frame.tip.y - frame.shortEnd.y) * frac
+      );
+      this._renderFatFrame(p, pv);
+    } else {
+      pv = W2S(0, p.pivotHeight);
+      var baseHalf = Math.max(0.5, p.pivotHeight * 0.45);
+      var bl = W2S(-baseHalf, 0), br = W2S(baseHalf, 0);
+      ctx.strokeStyle = COLORS.woodDark;
+      ctx.lineWidth = Math.max(3, 0.14 * this.scale);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(bl.x, bl.y); ctx.lineTo(pv.x, pv.y); ctx.lineTo(br.x, br.y);
+      ctx.moveTo(bl.x, bl.y); ctx.lineTo(br.x, br.y);
+      ctx.stroke();
+    }
 
     // ---- الذراع
     var tip = W2S(frame.tip.x, frame.tip.y);
@@ -395,6 +407,47 @@ TrebSim.Renderer = (function () {
         ly += 17;
       });
     }
+  };
+
+  /** هيكل الذراع العائمة: برجا قناة الثقل + سكة أفقية يتدحرج عليها المحور */
+  Renderer.prototype._renderFatFrame = function (p, axleS) {
+    var ctx = this.ctx;
+    var W2S = this.W2S;
+    var H = p.pivotHeight, Lc = p.shortArm;
+    var chTop = H + Lc + 0.4;   // قمة قناة الثقل
+    var chBot = Math.max(0.15, H - Lc - 0.4); // أسفل القناة
+
+    ctx.strokeStyle = COLORS.metal;
+    ctx.lineCap = 'round';
+
+    // برجا القناة الرأسية (الثقل ينزلق بينهما عند x = 0)
+    var beamW = Math.max(2.5, 0.1 * this.scale);
+    [[-0.28, 0.0], [0.28, 0.0]].forEach(function (off) {
+      var a = W2S(off[0], 0), b = W2S(off[0], chTop);
+      ctx.lineWidth = beamW;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    });
+    // دليلا الانزلاق الداخليان
+    ctx.lineWidth = Math.max(1, 0.03 * this.scale);
+    [[-0.13], [0.13]].forEach(function (off) {
+      var a = W2S(off[0], chBot), b = W2S(off[0], chTop);
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    });
+
+    // السكة الأفقية للمحور (يمتد مداها لمجال انزلاقه x ∈ [−Lc, 0])
+    var t0 = W2S(-Lc - 0.5, H), t1 = W2S(0.5, H);
+    ctx.lineWidth = Math.max(2.5, 0.09 * this.scale);
+    ctx.beginPath(); ctx.moveTo(t0.x, t0.y); ctx.lineTo(t1.x, t1.y); ctx.stroke();
+    // عمود دعم لطرف السكة البعيد
+    var s0 = W2S(-Lc - 0.4, 0), s1 = W2S(-Lc - 0.4, H);
+    ctx.lineWidth = beamW;
+    ctx.beginPath(); ctx.moveTo(s0.x, s0.y); ctx.lineTo(s1.x, s1.y); ctx.stroke();
+
+    // عجلتا المحور على السكة
+    ctx.fillStyle = COLORS.woodDark;
+    var wr = Math.max(3, 0.08 * this.scale);
+    ctx.beginPath(); ctx.arc(axleS.x - wr * 1.4, axleS.y, wr, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(axleS.x + wr * 1.4, axleS.y, wr, 0, Math.PI * 2); ctx.fill();
   };
 
   /** رسم جدار الهدف مع الضرر التراكمي وأثر الاصطدام */

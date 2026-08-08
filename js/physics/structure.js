@@ -60,12 +60,22 @@ TrebSim.Structure = (function () {
   function ropeBreakForce(d) { return ROPE.sigmaT * Math.PI * d * d / 4; }
 
   /**
-   * تسارع طرف الذراع الطويل (لموضع tip = pivot + Lp·(−cosθ, sinθ)):
-   *   a = Lp·θ̈·(sinθ, cosθ) + Lp·θ̇²·(cosθ, −sinθ)
+   * تسارع طرف الذراع الطويل:
+   * - محور ثابت:  tip = pivot + Lp·(−cosθ, sinθ)
+   *   ⇒ a = Lp·θ̈·(sinθ, cosθ) + Lp·θ̇²·(cosθ, −sinθ)
+   * - ذراع عائمة: tip = (−(Lc+Lp)·cosθ, H + Lp·sinθ)
+   *   ⇒ a = ((Lc+Lp)(cosθ·θ̇² + sinθ·θ̈), Lp(−sinθ·θ̇² + cosθ·θ̈))
    */
   function tipAcceleration(p, q, qd, alphaTheta) {
     var s = Math.sin(q.theta), c = Math.cos(q.theta);
     var w2 = qd.theta * qd.theta;
+    if (TrebSim.Trebuchet.isFat(p)) {
+      var S = p.shortArm + p.longArm;
+      return {
+        x: S * (c * w2 + s * alphaTheta),
+        y: p.longArm * (-s * w2 + c * alphaTheta)
+      };
+    }
     return {
       x: p.longArm * (alphaTheta * s + w2 * c),
       y: p.longArm * (alphaTheta * c - w2 * s)
@@ -121,12 +131,18 @@ TrebSim.Structure = (function () {
 
     var tension = null;
 
+    var fat = TrebSim.Trebuchet.isFat(p);
+
     // --- الجانب الطويل (المقذوف)
     var fTip;
     if (p.slingEnabled) {
       tension = slingTension(p, q, qd, qdd);
       // المركبة العمودية على الذراع من قوة الحبل: |T·cos(θ+ψ)|
       fTip = tension * Math.abs(Math.cos(q.theta + q.psi));
+    } else if (fat) {
+      // ذراع عائمة: القوة العرضية = Mp·(a⃗ − g⃗)·n̂ حيث n̂ = (sinθ, cosθ)
+      var aT = tipAcceleration(p, q, qd, alpha);
+      fTip = p.projectileMass * Math.abs(aT.x * Math.sin(q.theta) + (aT.y + g) * Math.cos(q.theta));
     } else {
       // F⊥ = Mp·(Lp·α + g·cosθ)
       fTip = p.projectileMass * Math.abs(p.longArm * alpha + g * Math.cos(q.theta));
@@ -136,9 +152,14 @@ TrebSim.Structure = (function () {
 
     // --- الجانب القصير (الثقل الموازن)
     var fShort;
-    if (p.swingingCW) {
+    if (p.swingingCW && !fat) {
       var Tc = hangerTension(p, q, qd, qdd);
       fShort = Tc * Math.abs(Math.cos(q.theta + q.phi));
+    } else if (fat) {
+      // ذراع عائمة: الثقل رأسي الحركة، ÿ = −Lc(cosθ·θ̈ − sinθ·θ̇²)
+      // القوة على الذراع عمودية المركبة: |Mc·(ÿ + g)·cosθ|
+      var ay = -p.shortArm * (Math.cos(q.theta) * alpha - Math.sin(q.theta) * qd.theta * qd.theta);
+      fShort = p.counterweightMass * Math.abs((ay + g) * Math.cos(q.theta));
     } else {
       fShort = p.counterweightMass * Math.abs(p.shortArm * alpha - g * Math.cos(q.theta));
     }

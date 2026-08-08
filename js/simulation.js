@@ -42,6 +42,7 @@ TrebSim.Simulation = (function () {
       counterweightMass: 300, // kg
       startAngleDeg: -45,    // °
       releaseAngleDeg: 40,   // °
+      armMode: 'standard',   // 'standard' محور ثابت | 'fat' ذراع عائمة
       slingEnabled: false,
       slingLength: 2,        // m
       swingingCW: false,
@@ -161,6 +162,8 @@ TrebSim.Simulation = (function () {
   /** تنفيذ التجربة كاملة وإعادة سجل النتائج والإطارات */
   function run(userParams) {
     var p = Object.assign(defaults(), userParams || {});
+    // الذراع العائمة: الثقل مقيد في قناة صلبة — لا معنى للتأرجح
+    if (p.armMode === 'fat') p.swingingCW = false;
     // كتلة الذراع من المادة والأبعاد: M = ρ·b·h·L (عند تفعيل الخيار)
     if (p.structuralEnabled && p.autoArmMass) {
       p.armMass = TrebSim.Structure.autoArmMass(p);
