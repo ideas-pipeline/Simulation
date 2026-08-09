@@ -406,8 +406,9 @@ TrebSim.UI = (function () {
   }
 
   // ---------------- التحذيرات ----------------
-  function renderWarnings(errors, warnings) {
-    var box = document.getElementById('warnings');
+  function renderWarnings(errors, warnings, containerId) {
+    var box = document.getElementById(containerId || 'warnings');
+    if (!box) return;
     box.innerHTML = '';
     (errors || []).forEach(function (e) {
       var d = document.createElement('div');
